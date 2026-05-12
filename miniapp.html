@@ -5,708 +5,429 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Daily OS</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #0a0a0f;
-    --surface: #13131a;
-    --surface2: #1c1c26;
-    --border: rgba(255,255,255,0.07);
-    --accent: #7c6ff7;
-    --accent2: #4ecdc4;
-    --accent3: #ff6b6b;
-    --amber: #ffd166;
-    --text: #f0f0f8;
-    --muted: rgba(240,240,248,0.45);
-    --radius: 16px;
-    --radius-sm: 10px;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
-  
-  /* Noise overlay */
-  body::before {
-    content: '';
-    position: fixed; inset: 0; z-index: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
-    pointer-events: none;
-  }
-
-  #app { position: relative; z-index: 1; height: 100vh; display: flex; flex-direction: column; }
-
-  /* Header */
-  .header {
-    padding: 16px 20px 12px;
-    display: flex; align-items: center; justify-content: space-between;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  .header-left { display: flex; flex-direction: column; }
-  .header-greeting { font-size: 11px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
-  .header-title { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
-  .header-title span { color: var(--accent); }
-  .date-badge {
-    background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 20px; padding: 6px 12px;
-    font-size: 12px; color: var(--muted);
-  }
-
-  /* Progress ring */
-  .progress-bar {
-    margin: 0 20px 0;
-    padding: 14px 0 12px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  .progress-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-  .progress-label-text { font-size: 12px; color: var(--muted); }
-  .progress-label-pct { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: var(--accent2); }
-  .progress-track { height: 4px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
-  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 4px; transition: width .4s ease; }
-
-  /* Nav */
-  .nav {
-    display: flex; gap: 4px; padding: 10px 20px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0; overflow-x: auto; scrollbar-width: none;
-  }
-  .nav::-webkit-scrollbar { display: none; }
-  .nav-btn {
-    flex-shrink: 0; padding: 7px 14px; border-radius: 20px;
-    font-size: 12px; font-weight: 500; font-family: 'DM Sans', sans-serif;
-    border: 1px solid var(--border); background: transparent;
-    color: var(--muted); cursor: pointer; transition: all .2s;
-  }
-  .nav-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-
-  /* Content */
-  .content { flex: 1; overflow-y: auto; padding: 16px 20px 100px; scrollbar-width: none; }
-  .content::-webkit-scrollbar { display: none; }
-
-  /* Section */
-  .section-title {
-    font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700;
-    letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
-    margin: 20px 0 10px;
-  }
-  .section-title:first-child { margin-top: 0; }
-
-  /* Habit card */
-  .habit-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 14px 16px;
-    margin-bottom: 8px; display: flex; align-items: center; gap: 14px;
-    transition: all .2s; cursor: pointer; user-select: none;
-  }
-  .habit-card:active { transform: scale(0.98); }
-  .habit-card.done { border-color: rgba(78,205,196,0.25); background: rgba(78,205,196,0.06); }
-  .habit-icon {
-    width: 40px; height: 40px; border-radius: 12px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 20px; flex-shrink: 0;
-  }
-  .habit-info { flex: 1; min-width: 0; }
-  .habit-name { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 2px; }
-  .habit-card.done .habit-name { color: var(--muted); text-decoration: line-through; }
-  .habit-time { font-size: 11px; color: var(--muted); }
-  .habit-check {
-    width: 26px; height: 26px; border-radius: 50%;
-    border: 2px solid var(--border); flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    transition: all .2s;
-  }
-  .habit-card.done .habit-check { background: var(--accent2); border-color: var(--accent2); }
-  .checkmark { display: none; color: #fff; font-size: 13px; font-weight: 700; }
-  .habit-card.done .checkmark { display: block; }
-
-  /* Calorie tracker */
-  .calorie-widget {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 20px;
-    margin-bottom: 8px;
-  }
-  .calorie-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
-  .calorie-total { font-family: 'Syne', sans-serif; font-size: 36px; font-weight: 800; line-height: 1; }
-  .calorie-total span { font-size: 14px; font-weight: 400; color: var(--muted); font-family: 'DM Sans', sans-serif; }
-  .calorie-goal { font-size: 12px; color: var(--muted); text-align: right; }
-  .calorie-goal strong { color: var(--amber); display: block; font-size: 16px; font-family: 'Syne', sans-serif; }
-  .calorie-track { height: 6px; background: var(--surface2); border-radius: 6px; overflow: hidden; margin-bottom: 16px; }
-  .calorie-fill { height: 100%; border-radius: 6px; transition: width .4s ease; background: var(--amber); }
-  .calorie-fill.over { background: var(--accent3); }
-  .macro-row { display: flex; gap: 8px; margin-bottom: 16px; }
-  .macro-item { flex: 1; background: var(--surface2); border-radius: var(--radius-sm); padding: 10px; text-align: center; }
-  .macro-val { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; }
-  .macro-label { font-size: 10px; color: var(--muted); margin-top: 2px; }
-  .meal-input-row { display: flex; gap: 8px; }
-  .meal-input {
-    flex: 1; background: var(--surface2); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); padding: 10px 14px;
-    color: var(--text); font-size: 14px; font-family: 'DM Sans', sans-serif;
-    outline: none;
-  }
-  .meal-input::placeholder { color: var(--muted); }
-  .meal-input:focus { border-color: var(--accent); }
-  .add-btn {
-    background: var(--accent); border: none; border-radius: var(--radius-sm);
-    padding: 10px 16px; color: #fff; font-size: 13px; font-weight: 500;
-    font-family: 'DM Sans', sans-serif; cursor: pointer; transition: opacity .2s;
-    white-space: nowrap;
-  }
-  .add-btn:active { opacity: 0.8; }
-  .meals-list { margin-top: 12px; }
-  .meal-item {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px;
-  }
-  .meal-item:last-child { border-bottom: none; }
-  .meal-name { color: var(--text); }
-  .meal-kcal { color: var(--amber); font-weight: 500; }
-  .meal-del { color: var(--muted); cursor: pointer; padding: 0 4px; font-size: 16px; }
-
-  /* AI Tasks */
-  .ai-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 20px; margin-bottom: 8px;
-  }
-  .ai-level-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-  .ai-level-badge {
-    background: rgba(124,111,247,0.15); border: 1px solid rgba(124,111,247,0.3);
-    border-radius: 20px; padding: 4px 12px; font-size: 11px; color: var(--accent);
-    font-weight: 500;
-  }
-  .ai-xp { font-size: 12px; color: var(--muted); }
-  .ai-task-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 8px; }
-  .ai-task-desc { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
-  .ai-task-tips { background: var(--surface2); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 16px; }
-  .ai-task-tips-title { font-size: 11px; color: var(--accent); font-weight: 500; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
-  .ai-task-tip { font-size: 12px; color: var(--muted); padding: 3px 0; }
-  .ai-task-tip::before { content: '→ '; color: var(--accent2); }
-  .complete-task-btn {
-    width: 100%; padding: 14px; border-radius: var(--radius-sm);
-    background: var(--accent); border: none; color: #fff;
-    font-size: 14px; font-weight: 600; font-family: 'Syne', sans-serif;
-    cursor: pointer; transition: opacity .2s; letter-spacing: .02em;
-  }
-  .complete-task-btn:active { opacity: 0.8; }
-  .complete-task-btn.done-btn { background: var(--surface2); color: var(--muted); }
-
-  /* Stats */
-  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-  .stat-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 16px;
-  }
-  .stat-val { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
-  .stat-label { font-size: 11px; color: var(--muted); }
-  .streak-card {
-    background: var(--surface); border: 1px solid rgba(255,107,107,0.2);
-    border-radius: var(--radius); padding: 16px;
-    display: flex; align-items: center; gap: 16px; margin-bottom: 8px;
-  }
-  .streak-flame { font-size: 36px; }
-  .streak-val { font-family: 'Syne', sans-serif; font-size: 32px; font-weight: 800; color: var(--accent3); }
-  .streak-label { font-size: 12px; color: var(--muted); }
-  .week-row { display: flex; gap: 6px; margin-top: 4px; }
-  .week-day {
-    flex: 1; aspect-ratio: 1; border-radius: 8px;
-    background: var(--surface2); display: flex; align-items: center;
-    justify-content: center; font-size: 10px; color: var(--muted);
-    font-weight: 500; flex-direction: column; gap: 2px;
-  }
-  .week-day.done { background: rgba(78,205,196,0.15); color: var(--accent2); }
-  .week-day.today { border: 1px solid var(--accent); }
-  .week-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
-
-  /* Bottom tab bar */
-  .tab-bar {
-    position: fixed; bottom: 0; left: 0; right: 0;
-    background: rgba(10,10,15,0.95); border-top: 1px solid var(--border);
-    display: flex; padding: 8px 0 max(8px, env(safe-area-inset-bottom));
-    z-index: 100; backdrop-filter: blur(20px);
-  }
-  .tab-item {
-    flex: 1; display: flex; flex-direction: column; align-items: center;
-    gap: 4px; cursor: pointer; padding: 4px 0;
-    transition: all .2s; color: var(--muted);
-  }
-  .tab-item.active { color: var(--accent); }
-  .tab-icon { font-size: 22px; line-height: 1; }
-  .tab-label { font-size: 10px; font-weight: 500; }
-
-  /* Toast */
-  .toast {
-    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
-    background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 20px; padding: 10px 20px; font-size: 13px;
-    opacity: 0; transition: all .3s; pointer-events: none; white-space: nowrap; z-index: 200;
-  }
-  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-  /* Motivational quote */
-  .quote-card {
-    background: linear-gradient(135deg, rgba(124,111,247,0.1), rgba(78,205,196,0.08));
-    border: 1px solid rgba(124,111,247,0.2);
-    border-radius: var(--radius); padding: 16px 20px; margin-bottom: 8px;
-  }
-  .quote-text { font-size: 14px; line-height: 1.6; color: var(--text); font-style: italic; margin-bottom: 6px; }
-  .quote-author { font-size: 11px; color: var(--accent); font-weight: 500; }
-
-  /* Journal */
-  .journal-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 20px; margin-bottom: 8px;
-  }
-  .journal-textarea {
-    width: 100%; background: var(--surface2); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); padding: 12px; color: var(--text);
-    font-size: 14px; font-family: 'DM Sans', sans-serif; line-height: 1.6;
-    resize: none; outline: none; min-height: 100px;
-  }
-  .journal-textarea:focus { border-color: var(--accent); }
-  .journal-prompt { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
-  .save-btn {
-    width: 100%; padding: 12px; border-radius: var(--radius-sm);
-    background: var(--surface2); border: 1px solid var(--border);
-    color: var(--text); font-size: 13px; font-weight: 500;
-    font-family: 'DM Sans', sans-serif; cursor: pointer; margin-top: 10px;
-    transition: all .2s;
-  }
-  .save-btn:active { background: var(--accent); border-color: var(--accent); }
+:root{--bg:#080810;--surface:#10101a;--surface2:#181824;--surface3:#20202e;--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.1);--accent:#7c6ff7;--accent2:#4ecdc4;--amber:#ffd166;--coral:#ff6b6b;--text:#f0f0f8;--muted:rgba(240,240,248,0.4);--muted2:rgba(240,240,248,0.65);--r:14px;--r-sm:10px}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px}
+#app{height:100vh;display:flex;flex-direction:column}
+.hdr{padding:14px 18px 10px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;border-bottom:1px solid var(--border)}
+.hdr-sub{font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+.hdr-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.02em;line-height:1}
+.hdr-title b{color:var(--accent)}
+.hdr-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.date-pill{background:var(--surface2);border:1px solid var(--border2);border-radius:20px;padding:5px 11px;font-size:11px;color:var(--muted2)}
+.streak-pill{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:500;color:var(--coral)}
+.prog-wrap{padding:10px 18px;border-bottom:1px solid var(--border);flex-shrink:0}
+.prog-top{display:flex;justify-content:space-between;margin-bottom:6px;font-size:11px}
+.prog-label{color:var(--muted)}
+.prog-pct{color:var(--accent2);font-family:'Syne',sans-serif;font-weight:700}
+.prog-track{height:3px;background:var(--surface2);border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:3px;transition:width .5s ease}
+.nav{display:flex;gap:5px;padding:10px 18px;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nav-btn{flex-shrink:0;padding:6px 13px;border-radius:20px;font-size:12px;font-weight:500;font-family:'DM Sans',sans-serif;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;transition:all .2s;white-space:nowrap}
+.nav-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.content{flex:1;overflow-y:auto;padding:14px 18px 90px;scrollbar-width:none}
+.content::-webkit-scrollbar{display:none}
+.stitle{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px}
+.stitle:first-child{margin-top:0}
+.habit{display:flex;align-items:center;gap:12px;padding:11px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;cursor:pointer;transition:all .2s;user-select:none}
+.habit:active{transform:scale(.98)}
+.habit.done{border-color:rgba(78,205,196,.2);background:rgba(78,205,196,.05)}
+.habit-ico{font-size:20px;width:32px;text-align:center;flex-shrink:0}
+.habit-info{flex:1;min-width:0}
+.habit-name{font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.habit.done .habit-name{color:var(--muted);text-decoration:line-through}
+.habit-time{font-size:11px;color:var(--muted);margin-top:1px}
+.habit-chk{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--border2);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s;font-size:11px}
+.habit.done .habit-chk{background:var(--accent2);border-color:var(--accent2);color:#fff}
+.cat-badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;font-weight:500;background:rgba(124,111,247,.15);color:#9d94f8}
+.cal-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;margin-bottom:8px}
+.cal-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+.cal-num{font-family:'Syne',sans-serif;font-size:38px;font-weight:800;line-height:1}
+.cal-unit{font-size:13px;color:var(--muted);font-family:'DM Sans',sans-serif;font-weight:400}
+.cal-goal-val{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--amber);text-align:right}
+.cal-goal-lbl{font-size:10px;color:var(--muted);text-align:right}
+.cal-track{height:5px;background:var(--surface2);border-radius:5px;overflow:hidden;margin-bottom:14px}
+.cal-fill{height:100%;border-radius:5px;transition:width .4s;background:var(--amber)}
+.cal-fill.over{background:var(--coral)}
+.macro-grid{display:flex;gap:6px;margin-bottom:14px}
+.macro-item{flex:1;background:var(--surface2);border-radius:var(--r-sm);padding:8px;text-align:center}
+.macro-val{font-family:'Syne',sans-serif;font-size:15px;font-weight:700}
+.macro-lbl{font-size:9px;color:var(--muted);margin-top:2px}
+.input-row{display:flex;gap:6px}
+.inp{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:9px 12px;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s}
+.inp:focus{border-color:var(--accent)}
+.inp::placeholder{color:var(--muted)}
+.inp-sm{width:72px;flex:none}
+.btn-add{background:var(--accent);border:none;border-radius:var(--r-sm);padding:9px 14px;color:#fff;font-size:13px;font-weight:500;cursor:pointer;transition:opacity .2s;white-space:nowrap;font-family:'DM Sans',sans-serif}
+.btn-add:active{opacity:.8}
+.meals-list{margin-top:10px}
+.meal-item{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
+.meal-item:last-child{border-bottom:none}
+.meal-del{color:var(--muted);cursor:pointer;padding:0 4px;font-size:18px;line-height:1}
+.meal-kcal{color:var(--amber);font-weight:500}
+.rec-card{display:flex;align-items:center;gap:12px;padding:11px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px}
+.ai-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;margin-bottom:8px}
+.ai-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.ai-badge{background:rgba(124,111,247,.15);border:1px solid rgba(124,111,247,.25);border-radius:20px;padding:3px 11px;font-size:11px;color:var(--accent);font-weight:500}
+.ai-xp{font-size:11px;color:var(--muted)}
+.ai-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:8px}
+.ai-desc{font-size:12px;color:var(--muted2);line-height:1.6;margin-bottom:14px}
+.ai-tips{background:var(--surface2);border-radius:var(--r-sm);padding:11px;margin-bottom:14px}
+.ai-tips-title{font-size:10px;color:var(--accent);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px}
+.ai-tip{font-size:12px;color:var(--muted);padding:2px 0}
+.ai-tip::before{content:'→ ';color:var(--accent2)}
+.btn-complete{width:100%;padding:13px;border-radius:var(--r-sm);background:var(--accent);border:none;color:#fff;font-size:13px;font-weight:600;font-family:'Syne',sans-serif;cursor:pointer;transition:opacity .2s;letter-spacing:.02em}
+.btn-complete:active{opacity:.8}
+.btn-complete.done{background:var(--surface2);color:var(--muted)}
+.chat-msgs{flex:1;overflow-y:auto;padding-bottom:10px;scrollbar-width:none}
+.chat-msgs::-webkit-scrollbar{display:none}
+.chat-msg{margin-bottom:10px;display:flex;flex-direction:column}
+.chat-msg.bot .bubble{background:var(--surface);border:1px solid var(--border);border-radius:14px 14px 14px 4px;align-self:flex-start;max-width:85%}
+.chat-msg.user .bubble{background:var(--accent);border-radius:14px 14px 4px 14px;align-self:flex-end;max-width:85%}
+.bubble{padding:10px 13px;font-size:13px;line-height:1.55}
+.bubble-time{font-size:10px;color:var(--muted);margin-top:3px;padding:0 4px}
+.chat-msg.user .bubble-time{text-align:right}
+.chat-input-wrap{display:flex;gap:8px;padding-top:10px;border-top:1px solid var(--border);flex-shrink:0}
+.chat-inp{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:22px;padding:10px 16px;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s}
+.chat-inp:focus{border-color:var(--accent)}
+.chat-inp::placeholder{color:var(--muted)}
+.btn-send{width:40px;height:40px;border-radius:50%;background:var(--accent);border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;transition:opacity .2s}
+.btn-send:active{opacity:.8}
+.typing{display:flex;gap:4px;padding:10px 13px;background:var(--surface);border:1px solid var(--border);border-radius:14px;width:56px}
+.dot-t{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:bounce .9s infinite}
+.dot-t:nth-child(2){animation-delay:.15s}
+.dot-t:nth-child(3){animation-delay:.3s}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+.j-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:8px}
+.j-prompt{font-size:11px;color:var(--muted);margin-bottom:7px}
+.j-ta{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;line-height:1.6;resize:none;outline:none;min-height:80px;transition:border-color .2s}
+.j-ta:focus{border-color:var(--accent)}
+.btn-save{width:100%;padding:11px;border-radius:var(--r-sm);background:var(--surface2);border:1px solid var(--border2);color:var(--text);font-size:13px;font-weight:500;font-family:'DM Sans',sans-serif;cursor:pointer;margin-top:10px;transition:all .2s}
+.btn-save:active{background:var(--accent);border-color:var(--accent)}
+.sleep-nums{display:flex;gap:5px;flex-wrap:wrap;margin:8px 0 14px}
+.sleep-num{width:36px;height:36px;border-radius:var(--r-sm);background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .2s}
+.sleep-num.sel{background:var(--accent);border-color:var(--accent);color:#fff}
+.sleep-chart{display:flex;align-items:flex-end;gap:5px;height:50px}
+.sleep-bar{flex:1;border-radius:3px;background:var(--accent);opacity:.6}
+.sleep-bar.today{opacity:1}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px}
+.stat-val{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;line-height:1;margin-bottom:3px}
+.stat-lbl{font-size:11px;color:var(--muted)}
+.win-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.win-item:last-child{border-bottom:none}
+.win-text{flex:1;font-size:13px}
+.win-date{font-size:10px;color:var(--muted)}
+.week-row{display:flex;gap:5px}
+.week-d{flex:1;aspect-ratio:1;border-radius:8px;background:var(--surface2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:9px;color:var(--muted);font-weight:500}
+.week-d.ok{background:rgba(78,205,196,.12);color:var(--accent2)}
+.week-d.today{border:1px solid var(--accent)}
+.week-dot{width:4px;height:4px;border-radius:50%;background:currentColor}
+.quote-card{background:linear-gradient(135deg,rgba(124,111,247,.08),rgba(78,205,196,.06));border:1px solid rgba(124,111,247,.15);border-radius:var(--r);padding:14px 16px;margin-bottom:10px}
+.quote-text{font-size:13px;line-height:1.6;font-style:italic;margin-bottom:5px}
+.quote-author{font-size:11px;color:var(--accent);font-weight:500}
+.bar{position:fixed;bottom:0;left:0;right:0;background:rgba(8,8,16,.95);border-top:1px solid var(--border);display:flex;padding:8px 0 max(8px,env(safe-area-inset-bottom));z-index:100;backdrop-filter:blur(20px)}
+.bar-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;color:var(--muted);transition:color .2s;padding:3px 0}
+.bar-item.on{color:var(--accent)}
+.bar-ico{font-size:22px;line-height:1}
+.bar-lbl{font-size:9px;font-weight:500}
+.toast{position:fixed;bottom:76px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--surface2);border:1px solid var(--border2);border-radius:20px;padding:9px 18px;font-size:12px;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;z-index:200}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
 <div id="app">
-  <div class="header">
-    <div class="header-left">
-      <span class="header-greeting">твой день</span>
-      <div class="header-title">Daily <span>OS</span></div>
+  <div class="hdr">
+    <div>
+      <div class="hdr-sub">твой день</div>
+      <div class="hdr-title">Daily <b>OS</b></div>
     </div>
-    <div class="date-badge" id="dateBadge"></div>
-  </div>
-
-  <div class="progress-bar">
-    <div class="progress-label">
-      <span class="progress-label-text">прогресс дня</span>
-      <span class="progress-label-pct" id="progressPct">0%</span>
-    </div>
-    <div class="progress-track">
-      <div class="progress-fill" id="progressFill" style="width:0%"></div>
+    <div class="hdr-right">
+      <div class="date-pill" id="dateBadge"></div>
+      <div class="streak-pill">🔥 <span id="streakNum">0</span> дней</div>
     </div>
   </div>
-
-  <div class="nav" id="navBar">
-    <button class="nav-btn active" onclick="showTab('habits')">Привычки</button>
-    <button class="nav-btn" onclick="showTab('calories')">Питание</button>
-    <button class="nav-btn" onclick="showTab('ai')">AI обучение</button>
-    <button class="nav-btn" onclick="showTab('journal')">Дневник</button>
-    <button class="nav-btn" onclick="showTab('stats')">Статистика</button>
+  <div class="prog-wrap">
+    <div class="prog-top"><span class="prog-label">прогресс дня</span><span class="prog-pct" id="progPct">0%</span></div>
+    <div class="prog-track"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
   </div>
-
+  <div class="nav">
+    <button class="nav-btn on" onclick="tab('habits')">Привычки</button>
+    <button class="nav-btn" onclick="tab('calories')">Питание</button>
+    <button class="nav-btn" onclick="tab('ai')">AI</button>
+    <button class="nav-btn" onclick="tab('chat')">Чат</button>
+    <button class="nav-btn" onclick="tab('journal')">Дневник</button>
+    <button class="nav-btn" onclick="tab('stats')">Статистика</button>
+    <button class="nav-btn" onclick="tab('settings')">⚙️ Настройки</button>
+  </div>
   <div class="content" id="content"></div>
-
-  <div class="tab-bar">
-    <div class="tab-item active" onclick="showTab('habits')">
-      <span class="tab-icon">✅</span>
-      <span class="tab-label">День</span>
-    </div>
-    <div class="tab-item" onclick="showTab('calories')">
-      <span class="tab-icon">🥗</span>
-      <span class="tab-label">Питание</span>
-    </div>
-    <div class="tab-item" onclick="showTab('ai')">
-      <span class="tab-icon">🤖</span>
-      <span class="tab-label">AI</span>
-    </div>
-    <div class="tab-item" onclick="showTab('journal')">
-      <span class="tab-icon">📓</span>
-      <span class="tab-label">Дневник</span>
-    </div>
-    <div class="tab-item" onclick="showTab('stats')">
-      <span class="tab-icon">📊</span>
-      <span class="tab-label">Статы</span>
-    </div>
+  <div class="bar">
+    <div class="bar-item on" onclick="tab('habits')"><span class="bar-ico">✅</span><span class="bar-lbl">День</span></div>
+    <div class="bar-item" onclick="tab('calories')"><span class="bar-ico">🥗</span><span class="bar-lbl">Питание</span></div>
+    <div class="bar-item" onclick="tab('ai')"><span class="bar-ico">🤖</span><span class="bar-lbl">AI</span></div>
+    <div class="bar-item" onclick="tab('chat')"><span class="bar-ico">💬</span><span class="bar-lbl">Чат</span></div>
+    <div class="bar-item" onclick="tab('journal')"><span class="bar-ico">📓</span><span class="bar-lbl">Дневник</span></div>
+    <div class="bar-item" onclick="tab('stats')"><span class="bar-ico">📊</span><span class="bar-lbl">Статы</span></div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
-
 <script>
-// ─── DATA ───────────────────────────────────────────────────────────────────
-const HABITS = [
-  { id:'wake',    icon:'🌅', name:'Подъём без телефона',    time:'5:30',  group:'Утро' },
-  { id:'water',   icon:'🍋', name:'Вода с лимоном + солнце',time:'5:32',  group:'Утро' },
-  { id:'meditate',icon:'🧘', name:'Медитация 15 мин',        time:'5:45',  group:'Утро' },
-  { id:'affirm',  icon:'💫', name:'Аффирмации + визуализация',time:'6:00', group:'Утро' },
-  { id:'stoic',   icon:'⚡', name:'Стоицизм — вопрос дня',   time:'6:10',  group:'Утро' },
-  { id:'shower',  icon:'🚿', name:'Холодный душ',             time:'6:15',  group:'Утро' },
-  { id:'workout', icon:'💪', name:'Зарядка 30 мин',           time:'6:25',  group:'Спорт' },
-  { id:'gym',     icon:'🏋️', name:'Зал (через день)',         time:'18:00', group:'Спорт' },
-  { id:'breakfast',icon:'🍳',name:'Завтрак',                  time:'7:00',  group:'Питание' },
-  { id:'plan',    icon:'🎯', name:'Планирование — 3 задачи',  time:'7:20',  group:'Работа' },
-  { id:'ailearn', icon:'🤖', name:'Обучение AI (блок 1)',     time:'7:30',  group:'Работа' },
-  { id:'read',    icon:'📚', name:'Чтение 20–30 страниц',     time:'12:30', group:'Развитие' },
-  { id:'work',    icon:'💼', name:'Проекты + клиенты',        time:'13:00', group:'Работа' },
-  { id:'walk',    icon:'🚶', name:'Прогулка после обеда',     time:'12:20', group:'Спорт' },
-  { id:'dinner',  icon:'🥗', name:'Ужин (правильный)',        time:'19:30', group:'Питание' },
-  { id:'aicontent',icon:'📱',name:'AI контент / подкаст',    time:'20:00', group:'Развитие' },
-  { id:'diary',   icon:'📓', name:'Журнал / дневник',         time:'20:45', group:'Вечер' },
-  { id:'tomorrow',icon:'📋', name:'Подготовка к завтра',      time:'21:00', group:'Вечер' },
-  { id:'detox',   icon:'🌙', name:'Цифровой детокс',          time:'21:10', group:'Вечер' },
+const HABITS=[
+  {id:'wake',ico:'🌅',name:'Подъём без телефона',time:'5:30',cat:'Утро'},
+  {id:'water',ico:'🍋',name:'Вода с лимоном + солнце',time:'5:32',cat:'Утро'},
+  {id:'meditate',ico:'🧘',name:'Медитация 15 мин',time:'5:45',cat:'Утро'},
+  {id:'affirm',ico:'💫',name:'Аффирмации + визуализация',time:'6:00',cat:'Утро'},
+  {id:'stoic',ico:'⚡',name:'Стоицизм — вопрос дня',time:'6:10',cat:'Утро'},
+  {id:'shower',ico:'🚿',name:'Холодный душ',time:'6:15',cat:'Утро'},
+  {id:'workout',ico:'💪',name:'Зарядка 30 мин',time:'6:25',cat:'Спорт'},
+  {id:'breakfast',ico:'🍳',name:'Завтрак',time:'7:00',cat:'Питание'},
+  {id:'plan',ico:'🎯',name:'3 главные задачи',time:'7:20',cat:'Работа'},
+  {id:'ailearn',ico:'🤖',name:'Обучение AI',time:'7:30',cat:'Работа'},
+  {id:'lunch',ico:'🥗',name:'Обед',time:'12:00',cat:'Питание'},
+  {id:'read',ico:'📚',name:'Чтение 20–30 страниц',time:'12:30',cat:'Развитие'},
+  {id:'walk',ico:'🚶',name:'Прогулка после обеда',time:'12:50',cat:'Спорт'},
+  {id:'work',ico:'💼',name:'Проекты + клиенты',time:'13:00',cat:'Работа'},
+  {id:'water2',ico:'💧',name:'Вода (напоминание)',time:'15:00',cat:'Здоровье'},
+  {id:'gym',ico:'🏋️',name:'Зал (через день)',time:'18:00',cat:'Спорт'},
+  {id:'dinner',ico:'🥘',name:'Ужин (лёгкий)',time:'19:30',cat:'Питание'},
+  {id:'aicont',ico:'📱',name:'AI контент / подкаст',time:'20:00',cat:'Развитие'},
+  {id:'diary',ico:'📓',name:'Журнал / дневник',time:'20:45',cat:'Вечер'},
+  {id:'prep',ico:'📋',name:'Подготовка к завтра',time:'21:00',cat:'Вечер'},
+  {id:'detox',ico:'🌙',name:'Цифровой детокс',time:'21:10',cat:'Вечер'},
+];
+const AI_TASKS=[
+  {title:'Промпт-инжиниринг — основы',desc:'Напиши один и тот же запрос 3 разными способами. Сравни результаты.',tips:['Открой Claude.ai или ChatGPT','Задай один вопрос тремя способами','Запиши что работает лучше'],link:'https://learn.deeplearning.ai'},
+  {title:'Системный промпт — создай AI ассистента',desc:'Задай роль через системный промпт. Это основа любого AI агента.',tips:['Зайди в Claude.ai','В системном промпте напиши: "Ты эксперт по..."','Протестируй 5 разных запросов'],link:'https://docs.anthropic.com'},
+  {title:'Anthropic API — первый запрос',desc:'Сделай первый запрос через API. Это откроет создание настоящих агентов.',tips:['Зарегистрируйся на console.anthropic.com','Получи API ключ','Сделай первый запрос через Python'],link:'https://console.anthropic.com'},
+  {title:'Make.com — первая автоматизация',desc:'Создай воркфлоу без кода: триггер → AI → действие.',tips:['Зарегистрируйся на make.com','Создай: Email → Claude → ответ','Протестируй сценарий'],link:'https://make.com'},
+  {title:'Построй AI агента для задачи',desc:'Создай агента который решает реальную бизнес задачу автономно.',tips:['Выбери конкретную проблему бизнеса','Опиши шаги агента','Используй n8n или Make'],link:'https://n8n.io'},
+  {title:'Найди первого клиента на AI',desc:'Найди бизнес с болью которую решает AI. Используй маркетинговые знания.',tips:['Составь список 10 местных бизнесов','Найди повторяющуюся ручную задачу','Предложи автоматизировать бесплатно за кейс'],link:'https://linkedin.com'},
+];
+const QUOTES=[
+  {text:'Дисциплина — это выбор между тем чего хочешь сейчас и тем чего хочешь больше всего.',author:'Авраам Линкольн'},
+  {text:'Успех — это сумма небольших усилий, повторяемых день за днём.',author:'Роберт Кольер'},
+  {text:'Не жди подходящего момента. Возьми момент и сделай его подходящим.',author:''},
+  {text:'Твои привычки сегодня — это твоя жизнь завтра.',author:''},
+  {text:'Каждый эксперт был когда-то новичком. Начни.',author:''},
+  {text:'Богатство — это не деньги. Это время и свобода.',author:'Naval Ravikant'},
+  {text:'Делай что должен, и будет то что будет.',author:'Марк Аврелий'},
 ];
 
-const AI_TASKS = [
-  { level:1, title:'Что такое промпт-инжиниринг', desc:'Изучи основы написания промптов. Узнай разницу между плохим и хорошим промптом.', tips:['Открой Claude или ChatGPT','Попробуй написать один и тот же запрос 3 разными способами','Сравни результаты и запиши что работает лучше'] },
-  { level:1, title:'Создай своего первого AI-ассистента', desc:'Используй системный промпт чтобы задать роль и поведение AI. Это основа любого агента.', tips:['Зайди в Claude.ai','В настройках задай системный промпт: "Ты эксперт по..."','Протестируй 5 разных запросов'] },
-  { level:2, title:'Разберись с API Anthropic', desc:'Научись делать запросы к Claude через API. Это откроет возможность создавать настоящих агентов.', tips:['Зарегистрируйся на console.anthropic.com','Получи API ключ','Сделай первый запрос через curl или Python'] },
-  { level:2, title:'Автоматизация с Make.com', desc:'Создай первый автоматизированный воркфлоу который использует AI без написания кода.', tips:['Зарегистрируйся на Make.com (бесплатно)','Создай сценарий: триггер → Claude → действие','Пример: получить email → обработать AI → ответить'] },
-  { level:3, title:'Построй AI агента для задачи', desc:'Создай агента который выполняет реальную задачу автономно — анализ, поиск, создание контента.', tips:['Выбери конкретную задачу бизнеса','Опиши шаги которые должен делать агент','Используй n8n или Make для оркестрации'] },
-  { level:3, title:'Найди первого клиента на AI', desc:'Используй маркетинговые знания. Найди бизнес с болью которую решает AI автоматизация.', tips:['Составь список из 10 местных бизнесов','Найди повторяющуюся задачу которую они делают вручную','Предложи автоматизировать бесплатно за кейс'] },
-];
+const tk=()=>new Date().toISOString().slice(0,10);
+const ld=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}};
+const sv=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
 
-const QUOTES = [
-  { text: 'Дисциплина — это выбор между тем чего хочешь сейчас и тем чего хочешь больше всего.', author: 'Авраам Линкольн' },
-  { text: 'Успех — это сумма небольших усилий, повторяемых день за днём.', author: 'Роберт Кольер' },
-  { text: 'Не жди подходящего момента. Возьми момент и сделай его подходящим.', author: 'Дж. Б. Пристли' },
-  { text: 'Твои привычки сегодня — это твоя жизнь завтра.', author: '' },
-  { text: 'Каждый эксперт был когда-то новичком. Начни.', author: '' },
-];
+// Key loaded from localStorage — never hardcoded
+const getKey = () => localStorage.getItem('openai_key') || '';
 
-// ─── STATE ──────────────────────────────────────────────────────────────────
-const todayKey = () => new Date().toISOString().slice(0,10);
-const load = (k, def) => { try { return JSON.parse(localStorage.getItem(k)) ?? def; } catch { return def; } };
-const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
-
-let state = {
-  tab: 'habits',
-  done: load('done_' + todayKey(), {}),
-  meals: load('meals_' + todayKey(), []),
-  aiProgress: load('ai_progress', 0),
-  aiDone: load('ai_done_' + todayKey(), false),
-  journal: load('journal_' + todayKey(), { gratitude:'', lesson:'', tomorrow:'' }),
-  streak: load('streak_data', { count:0, lastDate:'' }),
+let S={
+  tab:'habits',
+  done:ld('done_'+tk(),{}),
+  meals:ld('meals_'+tk(),[]),
+  aiProg:ld('ai_prog',0),
+  aiDone:ld('ai_done_'+tk(),false),
+  journal:ld('journal_'+tk(),{gratitude:'',lesson:'',tomorrow:'',win:''}),
+  sleep:ld('sleep_'+tk(),0),
+  sleepHistory:ld('sleep_history',[]),
+  wins:ld('wins',[]),
+  streak:ld('streak',{count:0,last:''}),
+  chat:ld('chat_history',[]),
+  catFilter:null,
 };
 
-// Update streak
-function updateStreak() {
-  const today = todayKey();
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0,10);
-  if (state.streak.lastDate === today) return;
-  if (state.streak.lastDate === yesterday) state.streak.count++;
-  else if (state.streak.lastDate !== today) state.streak.count = 1;
-  state.streak.lastDate = today;
-  save('streak_data', state.streak);
+function updStreak(){
+  const today=tk(),yest=new Date(Date.now()-86400000).toISOString().slice(0,10);
+  if(S.streak.last===today)return;
+  S.streak.count=S.streak.last===yest?S.streak.count+1:1;
+  S.streak.last=today;
+  sv('streak',S.streak);
 }
 
-// ─── PROGRESS ───────────────────────────────────────────────────────────────
-function getProgress() {
-  const total = HABITS.length;
-  const done = Object.values(state.done).filter(Boolean).length;
-  return Math.round(done / total * 100);
+function getPct(){return Math.round(Object.values(S.done).filter(Boolean).length/HABITS.length*100)}
+
+function refreshProg(){
+  const p=getPct();
+  document.getElementById('progPct').textContent=p+'%';
+  document.getElementById('progFill').style.width=p+'%';
+  document.getElementById('streakNum').textContent=S.streak.count;
 }
 
-function refreshProgress() {
-  const pct = getProgress();
-  document.getElementById('progressPct').textContent = pct + '%';
-  document.getElementById('progressFill').style.width = pct + '%';
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2000);
 }
 
-// ─── CALORIES ───────────────────────────────────────────────────────────────
-const CALORIE_GOAL = 2200;
-function totalCals() { return state.meals.reduce((s,m) => s + m.kcal, 0); }
-
-// ─── TABS ────────────────────────────────────────────────────────────────────
-function showTab(tab) {
-  state.tab = tab;
-  document.querySelectorAll('.nav-btn').forEach((b,i) => {
-    const tabs = ['habits','calories','ai','journal','stats'];
-    b.classList.toggle('active', tabs[i] === tab);
-  });
-  document.querySelectorAll('.tab-item').forEach((b,i) => {
-    const tabs = ['habits','calories','ai','journal','stats'];
-    b.classList.toggle('active', tabs[i] === tab);
-  });
+function tab(name){
+  S.tab=name;
+  const tabs=['habits','calories','ai','chat','journal','stats'];
+  document.querySelectorAll('.nav-btn').forEach((b,i)=>b.classList.toggle('on',tabs[i]===name));
+  document.querySelectorAll('.bar-item').forEach((b,i)=>b.classList.toggle('on',tabs[i]===name));
   render();
 }
 
-// ─── TOAST ──────────────────────────────────────────────────────────────────
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2000);
-}
-
-// ─── RENDER ─────────────────────────────────────────────────────────────────
-function render() {
-  const c = document.getElementById('content');
-  if (state.tab === 'habits') c.innerHTML = renderHabits();
-  else if (state.tab === 'calories') c.innerHTML = renderCalories();
-  else if (state.tab === 'ai') c.innerHTML = renderAI();
-  else if (state.tab === 'journal') c.innerHTML = renderJournal();
-  else if (state.tab === 'stats') c.innerHTML = renderStats();
-  refreshProgress();
+function render(){
+  const c=document.getElementById('content');
+  const map={habits:rHabits,calories:rCalories,ai:rAI,chat:rChat,journal:rJournal,stats:rStats,settings:rSettings};
+  c.innerHTML=(map[S.tab]||rHabits)();
+  refreshProg();
   bindEvents();
+  if(S.tab==='chat')scrollChat();
 }
 
-function renderHabits() {
-  const quote = QUOTES[new Date().getDay() % QUOTES.length];
-  const groups = {};
-  HABITS.forEach(h => {
-    if (!groups[h.group]) groups[h.group] = [];
-    groups[h.group].push(h);
-  });
-  let html = `<div class="quote-card"><div class="quote-text">"${quote.text}"</div>${quote.author ? `<div class="quote-author">— ${quote.author}</div>` : ''}</div>`;
-  Object.entries(groups).forEach(([g, habits]) => {
-    html += `<div class="section-title">${g}</div>`;
-    habits.forEach(h => {
-      const done = !!state.done[h.id];
-      html += `<div class="habit-card ${done?'done':''}" onclick="toggleHabit('${h.id}')">
-        <div class="habit-icon">${h.icon}</div>
-        <div class="habit-info">
-          <div class="habit-name">${h.name}</div>
-          <div class="habit-time">${h.time}</div>
-        </div>
-        <div class="habit-check"><span class="checkmark">✓</span></div>
-      </div>`;
-    });
-  });
-  return html;
-}
-
-function renderCalories() {
-  const total = totalCals();
-  const pct = Math.min(100, Math.round(total / CALORIE_GOAL * 100));
-  const over = total > CALORIE_GOAL;
-  const protein = state.meals.reduce((s,m) => s + (m.protein||0), 0);
-  const carbs = state.meals.reduce((s,m) => s + (m.carbs||0), 0);
-  const fat = state.meals.reduce((s,m) => s + (m.fat||0), 0);
-
-  let mealsHtml = state.meals.length === 0
-    ? '<div style="font-size:13px;color:var(--muted);text-align:center;padding:12px 0">Добавь первый приём пищи</div>'
-    : state.meals.map((m,i) => `<div class="meal-item">
-        <span class="meal-name">${m.name}</span>
-        <span style="display:flex;align-items:center;gap:10px">
-          <span class="meal-kcal">${m.kcal} ккал</span>
-          <span class="meal-del" onclick="deleteMeal(${i})">×</span>
-        </span>
-      </div>`).join('');
-
-  return `<div class="calorie-widget">
-    <div class="calorie-header">
-      <div>
-        <div class="calorie-total">${total} <span>ккал</span></div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">${over ? '⚠️ превышение' : `осталось ${CALORIE_GOAL - total} ккал`}</div>
-      </div>
-      <div class="calorie-goal"><strong>${CALORIE_GOAL}</strong>цель</div>
-    </div>
-    <div class="calorie-track"><div class="calorie-fill ${over?'over':''}" style="width:${pct}%"></div></div>
-    <div class="macro-row">
-      <div class="macro-item"><div class="macro-val" style="color:#ff6b6b">${protein}г</div><div class="macro-label">Белок</div></div>
-      <div class="macro-item"><div class="macro-val" style="color:#ffd166">${carbs}г</div><div class="macro-label">Углеводы</div></div>
-      <div class="macro-item"><div class="macro-val" style="color:#4ecdc4">${fat}г</div><div class="macro-label">Жиры</div></div>
-    </div>
-    <div class="meal-input-row">
-      <input class="meal-input" id="mealName" placeholder="Что съел? (напр. Яйца 2шт)" />
-      <input class="meal-input" id="mealKcal" type="number" placeholder="ккал" style="width:80px;flex:none" />
-      <button class="add-btn" onclick="addMeal()">+</button>
-    </div>
-    <div class="meals-list">${mealsHtml}</div>
-  </div>
-  <div class="section-title">Рекомендации на день</div>
-  <div class="habit-card" style="cursor:default">
-    <div class="habit-icon">🍳</div>
-    <div class="habit-info"><div class="habit-name">Завтрак</div><div class="habit-time">Яйца + овсянка + орехи — 500–600 ккал</div></div>
-  </div>
-  <div class="habit-card" style="cursor:default">
-    <div class="habit-icon">🍗</div>
-    <div class="habit-info"><div class="habit-name">Обед</div><div class="habit-time">Курица + рис + овощи — 600–700 ккал</div></div>
-  </div>
-  <div class="habit-card" style="cursor:default">
-    <div class="habit-icon">🥗</div>
-    <div class="habit-info"><div class="habit-name">Ужин</div><div class="habit-time">Рыба + салат + авокадо — 400–500 ккал</div></div>
-  </div>
-  <div class="habit-card" style="cursor:default">
-    <div class="habit-icon">🥜</div>
-    <div class="habit-info"><div class="habit-name">Перекусы</div><div class="habit-time">Орехи, творог, протеин — 300–400 ккал</div></div>
-  </div>`;
-}
-
-function renderAI() {
-  const idx = Math.min(state.aiProgress, AI_TASKS.length - 1);
-  const task = AI_TASKS[idx];
-  const done = state.aiDone;
-  const levelColors = ['#4ecdc4','#7c6ff7','#ff6b6b'];
-  const lc = levelColors[task.level - 1];
-
-  let html = `<div class="ai-card">
-    <div class="ai-level-row">
-      <span class="ai-level-badge">Уровень ${task.level}/3</span>
-      <span class="ai-xp">Задание ${idx+1} из ${AI_TASKS.length}</span>
-    </div>
-    <div class="ai-task-title">${task.title}</div>
-    <div class="ai-task-desc">${task.desc}</div>
-    <div class="ai-task-tips">
-      <div class="ai-task-tips-title">Как выполнить</div>
-      ${task.tips.map(t => `<div class="ai-task-tip">${t}</div>`).join('')}
-    </div>
-    <button class="complete-task-btn ${done?'done-btn':''}" onclick="completeAITask()">
-      ${done ? '✓ Выполнено сегодня' : 'Отметить выполнение'}
-    </button>
-  </div>`;
-
-  if (state.aiProgress > 0) {
-    html += `<div class="section-title">Прогресс обучения</div>`;
-    html += `<div class="habit-card" style="cursor:default">
-      <div class="habit-icon">🏆</div>
-      <div class="habit-info">
-        <div class="habit-name">Пройдено заданий: ${state.aiProgress}</div>
-        <div class="habit-time">Следующий уровень через ${Math.max(0, 3-state.aiProgress)} задания</div>
-      </div>
-    </div>`;
-  }
-
-  html += `<div class="section-title">Ресурсы для обучения</div>
-  <div class="habit-card" style="cursor:default"><div class="habit-icon">📖</div><div class="habit-info"><div class="habit-name">Prompt Engineering Guide</div><div class="habit-time">learn.deeplearning.ai — бесплатно</div></div></div>
-  <div class="habit-card" style="cursor:default"><div class="habit-icon">🛠</div><div class="habit-info"><div class="habit-name">n8n — автоматизация</div><div class="habit-time">n8n.io — open source, бесплатно</div></div></div>
-  <div class="habit-card" style="cursor:default"><div class="habit-icon">🤖</div><div class="habit-info"><div class="habit-name">Anthropic API Docs</div><div class="habit-time">docs.anthropic.com</div></div></div>`;
-
-  return html;
-}
-
-function renderJournal() {
-  const j = state.journal;
-  return `<div class="section-title">Вечерняя рефлексия</div>
-  <div class="journal-card">
-    <div class="journal-prompt">3 вещи за которые я благодарен сегодня</div>
-    <textarea class="journal-textarea" id="j_gratitude" placeholder="1. ...&#10;2. ...&#10;3. ...">${j.gratitude}</textarea>
-  </div>
-  <div class="journal-card">
-    <div class="journal-prompt">Главный урок дня</div>
-    <textarea class="journal-textarea" id="j_lesson" placeholder="Сегодня я понял что...">${j.lesson}</textarea>
-  </div>
-  <div class="journal-card">
-    <div class="journal-prompt">3 главные задачи на завтра</div>
-    <textarea class="journal-textarea" id="j_tomorrow" placeholder="1. ...&#10;2. ...&#10;3. ...">${j.tomorrow}</textarea>
-  </div>
-  <button class="save-btn" onclick="saveJournal()">Сохранить запись</button>`;
-}
-
-function renderStats() {
-  updateStreak();
-  const doneCount = Object.values(state.done).filter(Boolean).length;
-  const total = HABITS.length;
-  const pct = getProgress();
-  const days = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
-  const todayDow = (new Date().getDay() + 6) % 7;
-
-  let weekHtml = days.map((d,i) => {
-    const isToday = i === todayDow;
-    const isPast = i < todayDow;
-    const key = new Date(Date.now() - (todayDow - i) * 86400000).toISOString().slice(0,10);
-    const dayDone = load('done_' + key, {});
-    const dayPct = Math.round(Object.values(dayDone).filter(Boolean).length / total * 100);
-    const cls = isPast && dayPct > 50 ? 'done' : '';
-    return `<div class="week-day ${cls} ${isToday?'today':''}">
-      <span>${d}</span>
-      ${isToday ? `<div class="week-dot"></div>` : (isPast ? `<span style="font-size:9px">${dayPct}%</span>` : '')}
-    </div>`;
+function rHabits(){
+  const q=QUOTES[new Date().getDay()%QUOTES.length];
+  const habits=S.catFilter?HABITS.filter(h=>h.cat===S.catFilter):HABITS;
+  const cats=[...new Set(HABITS.map(h=>h.cat))];
+  let catBtns='<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px">';
+  catBtns+=`<button style="padding:5px 11px;border-radius:20px;font-size:11px;border:1px solid ${!S.catFilter?'var(--accent)':'var(--border2)'};background:${!S.catFilter?'var(--accent)':'transparent'};color:${!S.catFilter?'#fff':'var(--muted)'};cursor:pointer" onclick="setCat(null)">Все</button>`;
+  cats.forEach(c=>{catBtns+=`<button style="padding:5px 11px;border-radius:20px;font-size:11px;border:1px solid ${S.catFilter===c?'var(--accent)':'var(--border2)'};background:${S.catFilter===c?'var(--accent)':'transparent'};color:${S.catFilter===c?'#fff':'var(--muted)'};cursor:pointer" onclick="setCat('${c}')">${c}</button>`;});
+  catBtns+='</div>';
+  let rows=habits.map(h=>{
+    const done=!!S.done[h.id];
+    return `<div class="habit ${done?'done':''}" onclick="toggleH('${h.id}')"><div class="habit-ico">${h.ico}</div><div class="habit-info"><div class="habit-name">${h.name}<span class="cat-badge">${h.cat}</span></div><div class="habit-time">${h.time}</div></div><div class="habit-chk">${done?'✓':''}</div></div>`;
   }).join('');
+  return `<div class="quote-card"><div class="quote-text">"${q.text}"</div>${q.author?`<div class="quote-author">— ${q.author}</div>`:''}</div>${catBtns}${rows}`;
+}
 
-  return `<div class="streak-card">
-    <div class="streak-flame">🔥</div>
-    <div>
-      <div class="streak-val">${state.streak.count}</div>
-      <div class="streak-label">дней подряд</div>
+function setCat(c){S.catFilter=c;render();}
+
+function rCalories(){
+  const total=S.meals.reduce((s,m)=>s+m.kcal,0);
+  const goal=2200,pct=Math.min(100,Math.round(total/goal*100)),over=total>goal;
+  const prot=S.meals.reduce((s,m)=>s+(m.p||0),0);
+  const carb=S.meals.reduce((s,m)=>s+(m.c||0),0);
+  const fat=S.meals.reduce((s,m)=>s+(m.f||0),0);
+  const mlist=S.meals.length?S.meals.map((m,i)=>`<div class="meal-item"><span>${m.name}</span><span style="display:flex;align-items:center;gap:8px"><span class="meal-kcal">${m.kcal} ккал</span><span class="meal-del" onclick="delMeal(${i})">×</span></span></div>`).join(''):'<div style="font-size:12px;color:var(--muted);padding:8px 0;text-align:center">Добавь приём пищи</div>';
+  return `<div class="cal-card"><div class="cal-top"><div><div class="cal-num">${total}<span class="cal-unit"> ккал</span></div><div style="font-size:11px;color:var(--muted);margin-top:3px">${over?'⚠️ превышение':'осталось '+(goal-total)+' ккал'}</div></div><div><div class="cal-goal-val">${goal}</div><div class="cal-goal-lbl">цель</div></div></div><div class="cal-track"><div class="cal-fill ${over?'over':''}" style="width:${pct}%"></div></div><div class="macro-grid"><div class="macro-item"><div class="macro-val" style="color:var(--coral)">${prot}г</div><div class="macro-lbl">Белок</div></div><div class="macro-item"><div class="macro-val" style="color:var(--amber)">${carb}г</div><div class="macro-lbl">Углеводы</div></div><div class="macro-item"><div class="macro-val" style="color:var(--accent2)">${fat}г</div><div class="macro-lbl">Жиры</div></div></div><div class="input-row"><input class="inp" id="mName" placeholder="Что съел?"/><input class="inp inp-sm" id="mKcal" type="number" placeholder="ккал"/><button class="btn-add" onclick="addMeal()">+</button></div><div class="meals-list">${mlist}</div></div><div class="stitle">Рекомендации</div><div class="rec-card"><span style="font-size:20px">🍳</span><div><div style="font-size:13px;font-weight:500">Завтрак</div><div style="font-size:11px;color:var(--muted)">Яйца + овсянка + орехи — 500–600 ккал</div></div></div><div class="rec-card"><span style="font-size:20px">🍗</span><div><div style="font-size:13px;font-weight:500">Обед</div><div style="font-size:11px;color:var(--muted)">Курица + рис + овощи — 600–700 ккал</div></div></div><div class="rec-card"><span style="font-size:20px">🥗</span><div><div style="font-size:13px;font-weight:500">Ужин</div><div style="font-size:11px;color:var(--muted)">Рыба + салат + авокадо — 400–500 ккал</div></div></div>`;
+}
+
+function rAI(){
+  const idx=Math.min(S.aiProg,AI_TASKS.length-1),t=AI_TASKS[idx],done=S.aiDone;
+  return `<div class="ai-card"><div class="ai-top"><span class="ai-badge">Задание ${idx+1}/${AI_TASKS.length}</span><span class="ai-xp">AI путь к $1M</span></div><div class="ai-title">${t.title}</div><div class="ai-desc">${t.desc}</div><div class="ai-tips"><div class="ai-tips-title">Как выполнить</div>${t.tips.map(tip=>`<div class="ai-tip">${tip}</div>`).join('')}</div><a href="${t.link}" style="display:block;text-align:center;font-size:12px;color:var(--accent);margin-bottom:12px;text-decoration:none">📖 Открыть ресурс →</a><button class="btn-complete ${done?'done':''}" onclick="completeAI()">${done?'✓ Выполнено сегодня':'Отметить выполнение'}</button></div>${S.aiProg>0?`<div class="stitle">Прогресс</div><div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px"><span style="color:var(--muted)">Пройдено</span><span style="color:var(--accent2);font-weight:500">${S.aiProg}/${AI_TASKS.length}</span></div><div class="prog-track"><div class="prog-fill" style="width:${Math.round(S.aiProg/AI_TASKS.length*100)}%"></div></div></div>`:''}<div class="stitle">Ресурсы</div><div class="rec-card"><span style="font-size:20px">📖</span><div><div style="font-size:13px;font-weight:500">Prompt Engineering Guide</div><div style="font-size:11px;color:var(--muted)">learn.deeplearning.ai — бесплатно</div></div></div><div class="rec-card"><span style="font-size:20px">🛠</span><div><div style="font-size:13px;font-weight:500">n8n автоматизация</div><div style="font-size:11px;color:var(--muted)">n8n.io — open source</div></div></div>`;
+}
+
+function rChat(){
+  const msgs=S.chat.map(m=>`<div class="chat-msg ${m.role}"><div class="bubble">${m.text}</div><div class="bubble-time">${m.time}</div></div>`).join('');
+  const empty=!S.chat.length?`<div style="text-align:center;padding:30px 0;color:var(--muted);font-size:13px"><div style="font-size:32px;margin-bottom:8px">🤖</div>Привет! Спроси меня что угодно —<br>питание, AI, бизнес, мотивация</div>`:'';
+  return `<div style="display:flex;flex-direction:column;height:calc(100vh - 220px)"><div class="chat-msgs" id="chatMsgs">${empty}${msgs}</div><div class="chat-input-wrap"><input class="chat-inp" id="chatInp" placeholder="Напиши вопрос..."/><button class="btn-send" onclick="sendChat()">↑</button></div></div>`;
+}
+
+function scrollChat(){const el=document.getElementById('chatMsgs');if(el)el.scrollTop=el.scrollHeight;}
+
+function nowTime(){const d=new Date();return d.getHours()+':'+String(d.getMinutes()).padStart(2,'0');}
+
+async function sendChat(){
+  if(!getKey()){toast('Добавь OpenAI ключ в Настройки');tab('settings');return;}
+  const inp=document.getElementById('chatInp');
+  const text=inp.value.trim();
+  if(!text)return;
+  inp.value='';
+  S.chat.push({role:'user',text,time:nowTime()});
+  sv('chat_history',S.chat);
+  render();
+  const msgs=document.getElementById('chatMsgs');
+  if(msgs){
+    const t=document.createElement('div');
+    t.className='chat-msg bot';t.id='typing';
+    t.innerHTML='<div class="typing"><div class="dot-t"></div><div class="dot-t"></div><div class="dot-t"></div></div>';
+    msgs.appendChild(t);msgs.scrollTop=msgs.scrollHeight;
+  }
+  try{
+    const res=await fetch('https://api.openai.com/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+getKey()},
+      body:JSON.stringify({
+        model:'gpt-4o-mini',max_tokens:600,
+        messages:[
+          {role:'system',content:'Ты личный AI наставник. Помогаешь пользователю достичь $1M на AI агентах. Он живёт во Вьетнаме, маркетолог, учит AI (уровень 3/10), вес 89кг хочет похудеть. Отвечай кратко, конкретно, на русском. Мотивируй.'},
+          ...S.chat.filter(m=>m.role!=='bot').slice(-6).map(m=>({role:'user',content:m.text})),
+          {role:'user',content:text}
+        ]
+      })
+    });
+    const data=await res.json();
+    const reply=data.choices?.[0]?.message?.content||'Ошибка. Попробуй позже.';
+    document.getElementById('typing')?.remove();
+    S.chat.push({role:'bot',text:reply,time:nowTime()});
+    sv('chat_history',S.chat);
+  }catch(e){
+    document.getElementById('typing')?.remove();
+    S.chat.push({role:'bot',text:'Не могу подключиться. Проверь соединение.',time:nowTime()});
+    sv('chat_history',S.chat);
+  }
+  render();
+}
+
+function rJournal(){
+  const j=S.journal;
+  return `<div class="stitle">Победа дня 🏆</div><div class="j-card"><div class="j-prompt">Что хорошего случилось сегодня?</div><textarea class="j-ta" id="jWin" placeholder="Сегодня я сделал...">${j.win}</textarea></div><div class="stitle">Вечерняя рефлексия</div><div class="j-card"><div class="j-prompt">3 вещи за которые я благодарен</div><textarea class="j-ta" id="jGrat" placeholder="1. ...&#10;2. ...&#10;3. ...">${j.gratitude}</textarea></div><div class="j-card"><div class="j-prompt">Главный урок дня</div><textarea class="j-ta" id="jLesson" placeholder="Сегодня я понял что...">${j.lesson}</textarea></div><div class="j-card"><div class="j-prompt">3 задачи на завтра</div><textarea class="j-ta" id="jTomorrow" placeholder="1. ...&#10;2. ...&#10;3. ...">${j.tomorrow}</textarea></div><div class="stitle">Качество сна прошлой ночи</div><div class="j-card"><div class="j-prompt">Оцени сон от 1 до 10</div><div class="sleep-nums">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<div class="sleep-num ${S.sleep===n?'sel':''}" onclick="setSleep(${n})">${n}</div>`).join('')}</div></div><button class="btn-save" onclick="saveJournal()">💾 Сохранить</button>`;
+}
+
+function rStats(){
+  updStreak();
+  const done=Object.values(S.done).filter(Boolean).length;
+  const total=HABITS.length,pct=getPct();
+  const cals=S.meals.reduce((s,m)=>s+m.kcal,0);
+  const days=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+  const todayDow=(new Date().getDay()+6)%7;
+  const phase=S.aiProg<3?'Фундамент 🌱':S.aiProg<5?'Первые деньги 💰':'Масштаб 🚀';
+  const weekHtml=days.map((d,i)=>{
+    const isToday=i===todayDow,isPast=i<todayDow;
+    const key=new Date(Date.now()-(todayDow-i)*86400000).toISOString().slice(0,10);
+    const dd=ld('done_'+key,{});
+    const dp=Math.round(Object.values(dd).filter(Boolean).length/total*100);
+    return `<div class="week-d ${isPast&&dp>50?'ok':''} ${isToday?'today':''}"><span>${d}</span>${isToday?'<div class="week-dot"></div>':(isPast?`<span style="font-size:8px">${dp}%</span>`:'')}</div>`;
+  }).join('');
+  const winsHtml=S.wins.length?S.wins.slice(-5).reverse().map(w=>`<div class="win-item"><span style="font-size:18px">🏆</span><div><div class="win-text">${w.text}</div><div class="win-date">${w.date}</div></div></div>`).join(''):'<div style="font-size:12px;color:var(--muted);padding:8px 0">Победы появятся здесь. Запиши первую в дневнике!</div>';
+  const avgSleep=S.sleepHistory.length?Math.round(S.sleepHistory.slice(-7).reduce((s,v)=>s+v,0)/Math.min(7,S.sleepHistory.length)*10)/10:0;
+  return `<div class="stats-grid"><div class="stat-card"><div class="stat-val" style="color:var(--coral)">🔥${S.streak.count}</div><div class="stat-lbl">дней стрик</div></div><div class="stat-card"><div class="stat-val" style="color:var(--accent2)">${pct}%</div><div class="stat-lbl">привычек сегодня</div></div><div class="stat-card"><div class="stat-val" style="color:var(--amber)">${cals}</div><div class="stat-lbl">калорий сегодня</div></div><div class="stat-card"><div class="stat-val" style="color:var(--accent)">${S.aiProg}/6</div><div class="stat-lbl">AI заданий</div></div></div><div class="stitle">Неделя</div><div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:8px"><div class="week-row">${weekHtml}</div></div><div class="stitle">Качество сна (средн. ${avgSleep||'—'})</div><div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:8px"><div class="sleep-chart">${S.sleepHistory.slice(-7).map((v,i,a)=>`<div class="sleep-bar ${i===a.length-1?'today':''}" style="height:${v*10}%"></div>`).join('')||'<div style="color:var(--muted);font-size:12px">Нет данных</div>'}</div></div><div class="stitle">Победы месяца 🏆</div><div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:8px">${winsHtml}</div><div class="stitle">Путь к $1M</div><div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:10px"><span style="color:var(--muted)">Фаза:</span><span style="font-weight:500">${phase}</span></div><div class="prog-track"><div class="prog-fill" style="width:${Math.round(S.aiProg/6*100)}%"></div></div><div style="font-size:11px;color:var(--muted);margin-top:8px;text-align:center">AI заданий: ${S.aiProg}/6</div></div>`;
+}
+
+function rSettings(){
+  const key=getKey();
+  const hasKey=key&&key.length>10;
+  return `<div class="stitle">OpenAI API ключ</div>
+  <div class="j-card">
+    <div class="j-prompt">Ключ хранится только на твоём телефоне и никуда не отправляется</div>
+    <input class="inp" id="apiKeyInp" type="password" placeholder="sk-proj-..." value="${hasKey?key:''}"/>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn-add" style="flex:1" onclick="saveKey()">💾 Сохранить</button>
+      ${hasKey?'<button class="btn-add" style="background:var(--coral);flex:1" onclick="clearKey()">🗑 Удалить</button>':''}
     </div>
+    ${hasKey?'<div style="font-size:11px;color:var(--accent2);margin-top:8px">✓ Ключ сохранён — чат с AI работает</div>':'<div style="font-size:11px;color:var(--muted);margin-top:8px">Без ключа чат с AI недоступен</div>'}
   </div>
-  <div class="stats-grid">
-    <div class="stat-card">
-      <div class="stat-val" style="color:var(--accent2)">${doneCount}</div>
-      <div class="stat-label">привычек сегодня</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-val" style="color:var(--accent)">${pct}%</div>
-      <div class="stat-label">выполнение дня</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-val" style="color:var(--amber)">${totalCals()}</div>
-      <div class="stat-label">калорий сегодня</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-val" style="color:var(--accent3)">${state.aiProgress}</div>
-      <div class="stat-label">AI заданий пройдено</div>
-    </div>
-  </div>
-  <div class="section-title">Неделя</div>
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:8px">
-    <div class="week-row">${weekHtml}</div>
-  </div>
-  <div class="section-title">К цели $1M</div>
-  <div class="ai-card">
-    <div class="ai-task-title">Твой прогресс</div>
-    <div class="ai-task-desc">AI заданий выполнено: <strong>${state.aiProgress}</strong> из ${AI_TASKS.length}<br>Фаза: <strong>${state.aiProgress < 3 ? 'Фундамент' : state.aiProgress < 5 ? 'Первые деньги' : 'Масштаб'}</strong></div>
-    <div class="calorie-track" style="margin-top:8px"><div class="calorie-fill" style="width:${Math.round(state.aiProgress/AI_TASKS.length*100)}%;background:var(--accent)"></div></div>
+  <div class="stitle">Как получить ключ</div>
+  <div class="j-card">
+    <div class="j-prompt">1. Зайди на platform.openai.com/api-keys</div>
+    <div class="j-prompt">2. Нажми Create new secret key</div>
+    <div class="j-prompt">3. Скопируй и вставь выше</div>
+    <div class="j-prompt" style="color:var(--coral)">⚠️ Никому не показывай ключ</div>
   </div>`;
 }
-
-// ─── ACTIONS ────────────────────────────────────────────────────────────────
-function toggleHabit(id) {
-  state.done[id] = !state.done[id];
-  save('done_' + todayKey(), state.done);
-  if (state.done[id]) showToast('✓ Выполнено!');
-  render();
+function saveKey(){const k=document.getElementById('apiKeyInp')?.value.trim();if(!k){toast('Введи ключ');return;}localStorage.setItem('openai_key',k);toast('✓ Ключ сохранён!');render();}
+function clearKey(){localStorage.removeItem('openai_key');toast('Ключ удалён');render();}
+function toggleH(id){S.done[id]=!S.done[id];sv('done_'+tk(),S.done);if(S.done[id])toast('✓ Выполнено!');render();}
+function addMeal(){const n=document.getElementById('mName')?.value.trim(),k=parseInt(document.getElementById('mKcal')?.value);if(!n||!k||k<=0){toast('Введи название и калории');return;}S.meals.push({name:n,kcal:k,p:0,c:0,f:0});sv('meals_'+tk(),S.meals);toast('+'+k+' ккал');render();}
+function delMeal(i){S.meals.splice(i,1);sv('meals_'+tk(),S.meals);render();}
+function completeAI(){if(S.aiDone)return;S.aiDone=true;S.aiProg=Math.min(S.aiProg+1,AI_TASKS.length-1);sv('ai_done_'+tk(),true);sv('ai_prog',S.aiProg);toast('🔥 +1 XP!');render();}
+function setSleep(n){S.sleep=n;sv('sleep_'+tk(),n);const h=ld('sleep_history',[]);h.push(n);if(h.length>30)h.shift();S.sleepHistory=h;sv('sleep_history',h);render();}
+function saveJournal(){const win=document.getElementById('jWin')?.value.trim();S.journal={gratitude:document.getElementById('jGrat')?.value||'',lesson:document.getElementById('jLesson')?.value||'',tomorrow:document.getElementById('jTomorrow')?.value||'',win:win||''};sv('journal_'+tk(),S.journal);if(win){const wins=ld('wins',[]);wins.push({text:win,date:new Date().toLocaleDateString('ru')});if(wins.length>50)wins.shift();S.wins=wins;sv('wins',wins);}toast('📓 Сохранено!');}
+function bindEvents(){
+  const mn=document.getElementById('mName'),mk=document.getElementById('mKcal'),ci=document.getElementById('chatInp');
+  if(mn)mn.addEventListener('keydown',e=>{if(e.key==='Enter')mk?.focus()});
+  if(mk)mk.addEventListener('keydown',e=>{if(e.key==='Enter')addMeal()});
+  if(ci)ci.addEventListener('keydown',e=>{if(e.key==='Enter')sendChat()});
 }
 
-function addMeal() {
-  const name = document.getElementById('mealName').value.trim();
-  const kcal = parseInt(document.getElementById('mealKcal').value);
-  if (!name || !kcal || kcal <= 0) { showToast('Введи название и калории'); return; }
-  state.meals.push({ name, kcal, protein:0, carbs:0, fat:0 });
-  save('meals_' + todayKey(), state.meals);
-  showToast('Добавлено: ' + kcal + ' ккал');
-  render();
-}
-
-function deleteMeal(i) {
-  state.meals.splice(i, 1);
-  save('meals_' + todayKey(), state.meals);
-  render();
-}
-
-function completeAITask() {
-  if (state.aiDone) return;
-  state.aiDone = true;
-  state.aiProgress = Math.min(state.aiProgress + 1, AI_TASKS.length - 1);
-  save('ai_done_' + todayKey(), true);
-  save('ai_progress', state.aiProgress);
-  showToast('🔥 Задание выполнено! +1 XP');
-  render();
-}
-
-function saveJournal() {
-  state.journal.gratitude = document.getElementById('j_gratitude').value;
-  state.journal.lesson = document.getElementById('j_lesson').value;
-  state.journal.tomorrow = document.getElementById('j_tomorrow').value;
-  save('journal_' + todayKey(), state.journal);
-  showToast('📓 Сохранено');
-}
-
-function bindEvents() {
-  const mn = document.getElementById('mealName');
-  const mk = document.getElementById('mealKcal');
-  if (mn) mn.addEventListener('keydown', e => { if (e.key==='Enter') mk && mk.focus(); });
-  if (mk) mk.addEventListener('keydown', e => { if (e.key==='Enter') addMeal(); });
-}
-
-// ─── INIT ────────────────────────────────────────────────────────────────────
-const days = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
-const months = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
-const now = new Date();
-document.getElementById('dateBadge').textContent =
-  days[now.getDay()] + ', ' + now.getDate() + ' ' + months[now.getMonth()];
-
-try { window.Telegram?.WebApp?.ready(); window.Telegram?.WebApp?.expand(); } catch(e) {}
-
-render();
+const DAYS=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'],MONTHS=['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+const now=new Date();
+document.getElementById('dateBadge').textContent=DAYS[now.getDay()]+', '+now.getDate()+' '+MONTHS[now.getMonth()];
+try{window.Telegram?.WebApp?.ready();window.Telegram?.WebApp?.expand();}catch(e){}
+updStreak();render();
 </script>
 </body>
 </html>
