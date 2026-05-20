@@ -72,7 +72,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:radial-gradi
 .prog-row{display:flex;justify-content:space-between;margin-bottom:5px;font-size:10px}
 .prog-lbl{color:var(--text3);font-weight:600;letter-spacing:.05em;text-transform:uppercase}
 .prog-val{color:var(--teal);font-family:var(--font-h);font-weight:700}
-.prog-track{height:2px;background:var(--glass2);border-radius:2px;overflow:hidden}
+.prog-track{height:3px;background:var(--glass2);border-radius:2px;overflow:hidden}
 .prog-fill{height:100%;background:linear-gradient(90deg,var(--p),var(--teal));border-radius:2px;transition:width .5s ease}
 
 /* NAV */
@@ -82,7 +82,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:radial-gradi
 .nav-btn.on{background:var(--p);border-color:var(--p);color:#fff}
 
 /* CONTENT */
-.content{flex:1;overflow-y:auto;padding:14px 18px 90px;scrollbar-width:none}
+.content{flex:1;overflow-y:auto;padding:14px 18px 90px;scrollbar-width:none;scroll-behavior:smooth}
 .content::-webkit-scrollbar{display:none}
 
 /* COMMON */
@@ -344,6 +344,13 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:radial-gradi
 }
 [data-theme="light"] body::before{background:radial-gradient(ellipse 60% 40% at 15% 10%,rgba(108,99,255,0.05) 0%,transparent 60%),radial-gradient(ellipse 50% 30% at 85% 85%,rgba(0,168,132,0.04) 0%,transparent 60%)}
 [data-theme="light"] .bar{background:rgba(245,245,247,0.95)}
+[data-theme="light"] .health-card{background:#ffffff;border-color:#e0e0e8}
+[data-theme="light"] .r-btn{background:#f5f5f8;border-color:#dddde8;color:#333}
+[data-theme="light"] .r-btn.on{background:#ede9ff;border-color:#6c63ff;color:#4a2fdf}
+[data-theme="light"] .water-g{border-color:#ccc;background:#f0f0f8}
+[data-theme="light"] .water-g.full{border-color:#4a9eff}
+[data-theme="light"] .mood-btn{background:#f5f5f8;border-color:#e0e0e8}
+[data-theme="light"] .mood-btn.on{background:#ede9ff;border-color:#6c63ff}
 .drum-wrap{display:flex;gap:8px;justify-content:center;align-items:center;background:var(--bg2);border-radius:var(--r);padding:12px;border:1px solid var(--border2);margin-bottom:10px}
 .drum-col{display:flex;flex-direction:column;align-items:center;width:60px}
 .drum-lbl{font-size:10px;color:var(--text3);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
@@ -422,7 +429,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:radial-gradi
 // ── TRANSLATIONS ─────────────────────────────────────────────────────────────
 const T = {
   ru: {
-    home:'🏠 Главная', habits:'📚 Библиотека', health:'❤️ Здоровье',
+    home:'🏠 Главная', habits:'📚 Библиотека', health:'❤️ Здоровье', breath:'🫁 Дыхание',
     nutrition:'🥗 Питание', ai:'🤖 Обучение', chat:'💬 Чат',
     journal:'📓 Заметки', stats:'📊 Статистика', settings:'⚙️ Настройки',
     progress:'Прогресс дня', greeting_morning:'Доброе утро', greeting_day:'Добрый день', greeting_evening:'Добрый вечер',
@@ -452,7 +459,7 @@ const T = {
     diet_q:'Есть ли ограничения в питании?',
   },
   en: {
-    home:'🏠 Home', habits:'📚 Library', health:'❤️ Health',
+    home:'🏠 Home', habits:'📚 Library', health:'❤️ Health', breath:'🫁 Breath',
     nutrition:'🥗 Food', ai:'🤖 Learning', chat:'💬 Chat',
     journal:'📓 Notes', stats:'📊 Stats', settings:'⚙️ Settings',
     progress:'Day Progress', greeting_morning:'Good morning', greeting_day:'Good afternoon', greeting_evening:'Good evening',
@@ -832,6 +839,8 @@ let S={
   achievements: ld('achievements',[]),
   editingPlan: null,
   showAddForm: false,
+  showMacros: false,
+  foundRecipe: ld('found_recipe', null),
   mainFocus: ld('main_focus_'+tk(),''),
   _aiSubjectManual: false,
   drumHour: null,
@@ -926,7 +935,7 @@ function rHome(){
   const insight=_q.text;
   const energyLevels=[{ico:'😴',lbl:t().energy_low},{ico:'😊',lbl:t().energy_med},{ico:'🔥',lbl:t().energy_high},{ico:'⚡',lbl:t().energy_peak}];
 
-  const morningBanner=(hour>=5&&hour<9&&gc.focusSuggestion)?`<div class="ai-bubble" style="border-left:3px solid var(--amber);background:rgba(245,166,35,0.07)">🌅 ${gc.focusSuggestion[lang]}</div>`:'';
+  const morningBanner=(hour>=5&&hour<9&&gc.focusSuggestion)?`<div style="border:1px solid var(--p);background:var(--p3);border-radius:var(--r);padding:12px 14px;margin-bottom:10px;font-size:13px;color:var(--text2);line-height:1.5">🌅 ${gc.focusSuggestion[lang]}</div>`:'';
 
   // Main focus card
   const focusCard=`<div class="card" style="border:1px solid rgba(245,166,35,0.3);margin-bottom:4px">
@@ -1031,7 +1040,7 @@ function rHome(){
   const _bfReminder=(hour>=8&&hour<11&&!_hasBreakfast)
     ?`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(245,166,35,0.07);border-left:3px solid var(--amber);border-radius:var(--r);margin-bottom:6px;cursor:pointer" onclick="tab('nutrition')"><span>🍳 ${lang==='ru'?'Не забудь позавтракать!':'Don\'t forget breakfast!'}</span><span style="font-size:11px;color:var(--amber)">${lang==='ru'?'Записать →':'Log →'}</span></div>`
     :'';
-  const _hSuggs=(S.health.sleep||S.health.energy||S.health.stress)?adjustPlanForHealth().slice(0,2).map((s,_i)=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border-radius:var(--r);margin-bottom:6px;border-left:3px solid ${s.type==='warning'?'var(--amber)':'var(--teal)'}"><span>${s.type==='warning'?'⚠️':'💡'}</span><span style="font-size:12px;color:var(--text2);flex:1">${s.text[lang]}</span>${s.habitId?`<button class="plan-action-btn" onclick="addHabitSugg('${s.habitId}')">+ ${lang==='ru'?'Добавить':'Add'}</button>`:''}<button style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0 4px" onclick="this.closest('div').remove()">×</button></div>`).join(''):'';
+  const _hSuggs=(S.health.sleep||S.health.energy||S.health.stress)?adjustPlanForHealth().slice(0,3).map((s,_i)=>{const borderCol=s.type==='warning'?'var(--amber)':s.type==='food_tip'?'var(--p)':'var(--teal)';const ico=s.type==='warning'?'⚠️':s.type==='food_tip'?'🥗':'💡';return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border-radius:var(--r);margin-bottom:6px;border-left:3px solid ${borderCol}"><span>${ico}</span><span style="font-size:12px;color:var(--text2);flex:1">${s.text[lang]}</span>${s.habitId?`<button class="plan-action-btn" onclick="addHabitSugg('${s.habitId}')">+ ${lang==='ru'?'Добавить':'Add'}</button>`:''}<button style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0 4px" onclick="this.closest('div').remove()">×</button></div>`;}).join(''):'';
   const _aiProgH=S.aiProg||0,_aiSubjH=S.aiSubject||'ai',_allLH=getLessons(_aiSubjH),_curLH=_allLH[Math.min(_aiProgH,_allLH.length-1)];
   const _showL=_aiProgH>0||S.myHabits.some(h=>h&&h.includes('learn'));
   const _subNH={ai:{ru:'AI',en:'AI'},music:{ru:'Музыка',en:'Music'},design:{ru:'Дизайн',en:'Design'},business:{ru:'Бизнес',en:'Business'},language:{ru:'Языки',en:'Languages'}};
@@ -1153,28 +1162,20 @@ function toggleHabit(id){
 function rHealth(){
   const h=S.health;
   // SVG Radar chart
-  const cx=110,cy=110,r=72;
-  const mKeys=['sleep','focus','energy','mood','water','stress'];
-  const mMaxs=[10,10,10,5,8,10];
-  const mIcos=['😴','🎯','⚡','😊','💧','😰'];
-  const mLbls=lang==='ru'?['Сон','Фокус','Энергия','Настроение','Вода','Стресс']:['Sleep','Focus','Energy','Mood','Water','Stress'];
-  const n=6;
-  const angles=Array.from({length:n},(_,i)=>i*2*Math.PI/n-Math.PI/2);
-  const vals=mKeys.map((k,i)=>Math.min(1,Math.max(0.02,(h[k]||0)/mMaxs[i])));
-  const px=(a,f)=>(cx+r*f*Math.cos(a)).toFixed(1);
-  const py=(a,f)=>(cy+r*f*Math.sin(a)).toFixed(1);
-  const ptStr=(f)=>angles.map(a=>px(a,f)+','+py(a,f)).join(' ');
-  const dataPts=angles.map((a,i)=>px(a,vals[i])+','+py(a,vals[i])).join(' ');
-  const grids=[0.2,0.4,0.6,0.8,1].map(f=>`<polygon points="${ptStr(f)}" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`).join('');
-  const axes=angles.map(a=>`<line x1="${cx}" y1="${cy}" x2="${px(a,1)}" y2="${py(a,1)}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`).join('');
-  const dots=angles.map((a,i)=>`<circle cx="${px(a,vals[i])}" cy="${py(a,vals[i])}" r="3.5" fill="#6c63ff"/>`).join('');
-  const lbls=angles.map((a,i)=>{
-    const lx=cx+r*1.3*Math.cos(a),ly=cy+r*1.3*Math.sin(a);
-    const anchor=lx<cx-4?'end':lx>cx+4?'start':'middle';
-    return `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${anchor}" dominant-baseline="middle" font-size="9" fill="rgba(255,255,255,0.4)" font-family="DM Sans,sans-serif">${mIcos[i]} ${mLbls[i]}</text>`;
-  }).join('');
-  const scoreVal=Math.round(vals.reduce((a,b)=>a+b,0)/n*100);
-  const radarSVG=`<svg width="220" height="220" viewBox="0 0 220 220">${grids}${axes}<polygon points="${ptStr(1)}" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.07)" stroke-width="1"/><polygon points="${dataPts}" fill="rgba(108,99,255,0.2)" stroke="#6c63ff" stroke-width="2"/>${dots}${lbls}<text x="${cx}" y="${cy+4}" text-anchor="middle" font-size="22" font-weight="800" fill="rgba(255,255,255,0.9)" font-family="Syne,sans-serif">${scoreVal}</text><text x="${cx}" y="${cy+20}" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.35)" font-family="DM Sans,sans-serif">${lang==='ru'?'балл':'score'}</text></svg>`;
+  const _rCx=110,_rCy=110,_rMax=90;
+  const _rAngDeg=[-90,-30,30,90,150,210];
+  const _rRad=deg=>deg*Math.PI/180;
+  const _rPt=(v,deg)=>{const r=(v/10)*_rMax;return{x:_rCx+r*Math.cos(_rRad(deg)),y:_rCy+r*Math.sin(_rRad(deg))};};
+  const _rPts=vals=>_rAngDeg.map((deg,i)=>_rPt(vals[i],deg));
+  const _rStr=pts=>pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const _rVals=[h.sleep||0,h.focus||0,h.stress||0,h.energy||0,h.mood||0,Math.round((h.water||0)/8*10)];
+  const grids=[2,4,6,8,10].map(lv=>`<polygon points="${_rStr(_rPts([lv,lv,lv,lv,lv,lv]))}" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`).join('');
+  const axes=_rAngDeg.map(deg=>{const ex=(_rCx+_rMax*Math.cos(_rRad(deg))).toFixed(1),ey=(_rCy+_rMax*Math.sin(_rRad(deg))).toFixed(1);return `<line x1="${_rCx}" y1="${_rCy}" x2="${ex}" y2="${ey}" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`;}).join('');
+  const dataPts=_rStr(_rPts(_rVals));
+  const _rLbls=[{t:lang==='ru'?'Сон':'Sleep',deg:-90},{t:lang==='ru'?'Фокус':'Focus',deg:-30},{t:lang==='ru'?'Стресс':'Stress',deg:30},{t:lang==='ru'?'Энергия':'Energy',deg:90},{t:lang==='ru'?'Настроение':'Mood',deg:150},{t:lang==='ru'?'Вода':'Water',deg:210}];
+  const lbls=_rLbls.map(l=>{const lx=(_rCx+105*Math.cos(_rRad(l.deg))).toFixed(1),ly=(_rCy+105*Math.sin(_rRad(l.deg))).toFixed(1);return `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="rgba(255,255,255,0.45)" font-family="DM Sans,sans-serif">${l.t}</text>`;}).join('');
+  const scoreVal=Math.round(_rVals.reduce((a,b)=>a+b,0)/6*10);
+  const radarSVG=`<svg width="220" height="220" viewBox="0 0 220 220">${grids}${axes}<polygon points="${dataPts}" fill="rgba(108,99,255,0.25)" stroke="#6c63ff" stroke-width="2"/>${lbls}<text x="${_rCx}" y="${_rCy+5}" text-anchor="middle" font-size="22" font-weight="800" fill="rgba(255,255,255,0.9)" font-family="Syne,sans-serif">${scoreVal}%</text></svg>`;
 
   const metrics=[
     {key:'sleep',ico:'😴',lbl:t().sleep},
@@ -1226,7 +1227,30 @@ function rHealth(){
     ${h.sleep||h.energy||h.stress?`<div class="ai-bubble" style="margin-bottom:10px">${lang==='ru'?`Сон ${h.sleep||'?'}/10 · Энергия ${h.energy||'?'}/10 · Стресс ${h.stress||'?'}/10${h.energy<5?' · Перенеси тяжёлые задачи на вечер':''}`:
     `Sleep ${h.sleep||'?'}/10 · Energy ${h.energy||'?'}/10 · Stress ${h.stress||'?'}/10${h.energy<5?' · Move heavy tasks to later':''}`}</div>`:''}
     <button class="btn-main" onclick="getHealthInsight()">${t().gen_insight}</button>
-  </div>`;
+  </div>
+
+  ${(()=>{
+    const todayMeals=ld('meals_'+tk(),[]);
+    const todayKcal=todayMeals.reduce((s,m)=>s+m.kcal,0);
+    const nutGoal=S.user.nutGoal||'lose';
+    const bmr=Math.round(10*S.user.weight+6.25*(S.user.height||178)-5*30+(nutGoal==='lose'?5:-161));
+    const kcalGoal=Math.round(bmr*(S.user.activityLevel==='low'?1.375:S.user.activityLevel==='high'?1.725:1.55));
+    if(!todayKcal)return '';
+    const over=todayKcal>kcalGoal;
+    const pct=Math.min(100,Math.round(todayKcal/kcalGoal*100));
+    return `<div class="stitle">${lang==='ru'?'Питание сегодня':'Today Nutrition'}</div>
+    <div style="background:${over?'rgba(255,107,107,0.08)':'rgba(0,212,170,0.06)'};border:1px solid ${over?'rgba(255,107,107,0.2)':'rgba(0,212,170,0.15)'};border-radius:var(--r);padding:14px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:13px;font-weight:500;color:var(--text)">${over?'⚠️':'✅'} ${lang==='ru'?'Калории':'Calories'}</span>
+        <span style="font-family:var(--font-h);font-size:16px;font-weight:700;color:${over?'var(--coral)':'var(--teal)'}">${todayKcal}/${kcalGoal}</span>
+      </div>
+      <div style="height:4px;background:var(--glass2);border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${over?'var(--coral)':'var(--teal)'};border-radius:4px;transition:width .4s"></div>
+      </div>
+      ${over?`<div style="font-size:11px;color:var(--coral);margin-top:8px">${lang==='ru'?'Превышение калорий может увеличить стресс и снизить качество сна':'Calorie excess can increase stress and reduce sleep quality'}</div>`:`<div style="font-size:11px;color:var(--teal);margin-top:8px">${lang==='ru'?'Питание в норме — это поддерживает энергию и фокус':'Nutrition on track — supports energy and focus'}</div>`}
+      <button onclick="tab('nutrition')" style="width:100%;margin-top:10px;padding:9px;background:var(--glass);border:1px solid var(--border2);border-radius:var(--r-sm);color:var(--text2);font-size:12px;font-weight:500;cursor:pointer;font-family:var(--font-b)">${lang==='ru'?'Открыть питание →':'Open nutrition →'}</button>
+    </div>`;
+  })()}`;
 }
 
 function setH(k,v){S.health[k]=v;sv('health_'+tk(),S.health);render();}
@@ -1276,6 +1300,18 @@ function rBreath(){
   const anim=_breathRunning?`${animMap[_breathPhase]} ${bp[_breathPhase]||1}s linear infinite`:'none';
   const patternCards=BREATH_PATTERNS.map(p=>`<div onclick="selectBreath('${p.id}')" style="flex:1;min-width:calc(50% - 4px);padding:10px 8px;background:var(--bg2);border:1.5px solid ${S.breathPattern===p.id?p.color:'var(--border)'};border-radius:var(--r);cursor:pointer;text-align:center;transition:all .2s;box-sizing:border-box"><div style="font-size:11px;font-weight:700;color:${S.breathPattern===p.id?p.color:'var(--text2)'};margin-bottom:2px">${p.name[lang]}</div><div style="font-size:9px;color:var(--text3)">${p.desc[lang]}</div></div>`).join('');
   return `
+  <div style="text-align:center;margin-bottom:16px">
+    <svg viewBox="0 0 120 120" width="80" height="80" style="margin:0 auto;display:block">
+      <circle cx="60" cy="60" r="50" fill="rgba(108,99,255,0.06)" stroke="rgba(108,99,255,0.15)" stroke-width="1"/>
+      <circle cx="60" cy="60" r="35" fill="rgba(108,99,255,0.08)" stroke="rgba(108,99,255,0.2)" stroke-width="1"/>
+      <circle cx="60" cy="60" r="22" fill="rgba(108,99,255,0.15)" stroke="#6c63ff" stroke-width="1.5">
+        <animate attributeName="r" values="22;28;22" dur="4s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.8;1;0.8" dur="4s" repeatCount="indefinite"/>
+      </circle>
+      <text x="60" y="65" text-anchor="middle" font-size="18" fill="#6c63ff" font-family="sans-serif">🫁</text>
+    </svg>
+    <div style="font-size:11px;color:var(--text3);margin-top:6px">${lang==='ru'?'Дыши осознанно':'Breathe mindfully'}</div>
+  </div>
   <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">${patternCards}</div>
   <div style="text-align:center;padding:12px 0">
     <div class="breath-circle" style="background:${bp.color}22;border:3px solid ${bp.color}55;animation:${anim}">
@@ -1322,6 +1358,7 @@ function breathTick(){
 
 // ── NUTRITION ─────────────────────────────────────────────────────────────────
 function rNutrition(){
+  const nutGoal=S.user.nutGoal||'lose';
   const goal=S.user.targetWeight&&S.user.targetWeight<S.user.weight?'lose':'gain';
   const bmr=Math.round(10*S.user.weight+6.25*S.user.height-5*30+(goal==='lose'?5:-161));
   const kcalGoal=Math.round(bmr*(S.user.activityLevel==='low'?1.375:S.user.activityLevel==='medium'?1.55:1.725));
@@ -1340,7 +1377,14 @@ function rNutrition(){
 
   let bodyHtml='';
   if(S.nutriTab==='log'){
+    const adviceKey='nutritionist_advice_'+tk();
+    const savedAdvice=ld(adviceKey,null);
     bodyHtml=`
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <button onclick="setNutGoal('lose')" style="flex:1;padding:10px 6px;border-radius:var(--r);border:1.5px solid ${nutGoal==='lose'?'var(--teal)':'var(--border)'};background:${nutGoal==='lose'?'var(--teal2)':'var(--glass)'};color:${nutGoal==='lose'?'var(--teal)':'var(--text3)'};font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-b)">🔥 ${lang==='ru'?'Похудеть':'Lose weight'}</button>
+      <button onclick="setNutGoal('maintain')" style="flex:1;padding:10px 6px;border-radius:var(--r);border:1.5px solid ${nutGoal==='maintain'?'var(--p)':'var(--border)'};background:${nutGoal==='maintain'?'var(--p3)':'var(--glass)'};color:${nutGoal==='maintain'?'var(--p2)':'var(--text3)'};font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-b)">⚖️ ${lang==='ru'?'Держать вес':'Maintain'}</button>
+      <button onclick="setNutGoal('gain')" style="flex:1;padding:10px 6px;border-radius:var(--r);border:1.5px solid ${nutGoal==='gain'?'var(--amber)':'var(--border)'};background:${nutGoal==='gain'?'var(--amber2)':'var(--glass)'};color:${nutGoal==='gain'?'var(--amber)':'var(--text3)'};font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-b)">💪 ${lang==='ru'?'Набрать массу':'Gain muscle'}</button>
+    </div>
     <div class="stitle" style="margin-top:0">${t().dietary}</div>
     <div class="tag-row" style="margin-bottom:8px">${[
       {id:'gluten_free',lbl:{ru:'Без глютена 🌾',en:'Gluten-free 🌾'}},
@@ -1368,18 +1412,47 @@ function rNutrition(){
         <input class="inp inp-sm" id="mKcal" type="number" placeholder="kcal"/>
         <button class="btn-add" onclick="addMeal()">+</button>
       </div>
+      <div style="margin-top:8px">
+        <button onclick="S.showMacros=!S.showMacros;render()" style="background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;font-family:var(--font-b);padding:0">${S.showMacros?'▲':'▼'} ${lang==='ru'?'Добавить БЖУ (необязательно)':'Add macros (optional)'}</button>
+        ${S.showMacros?`<div style="display:flex;gap:6px;margin-top:8px"><input class="inp" id="mProt" type="number" placeholder="${lang==='ru'?'Белок г':'Protein g'}" style="flex:1"/><input class="inp" id="mCarb" type="number" placeholder="${lang==='ru'?'Углев г':'Carbs g'}" style="flex:1"/><input class="inp" id="mFat" type="number" placeholder="${lang==='ru'?'Жиры г':'Fat g'}" style="flex:1"/></div>`:''}
+      </div>
       <div class="meal-list">${mlist}</div>
     </div>
     <button class="btn-main" style="margin-top:4px" onclick="getAIMealPlan()">${t().get_meal_plan}</button>
-    ${S.aiMealPlan?`<div class="stitle">${t().meal_plan}</div>${renderMealPlan(S.aiMealPlan)}`:''}`;
+    ${S.aiMealPlan?`<div class="stitle">${t().meal_plan}</div>${renderMealPlan(S.aiMealPlan)}`:''}
+    <button class="btn-main" style="margin-top:8px;background:var(--teal2);color:var(--teal);border:1.5px solid var(--teal)" onclick="getAINutritionist()">🥗 ${lang==='ru'?'AI Нутрициолог':'AI Nutritionist'}</button>
+    ${savedAdvice?`<div class="card" style="margin-top:8px"><div style="font-size:11px;font-weight:700;color:var(--teal);margin-bottom:8px">🥗 ${lang==='ru'?'Рекомендации нутрициолога':'Nutritionist Advice'}</div><div style="font-size:12px;color:var(--text2);line-height:1.7;white-space:pre-wrap">${escH(savedAdvice)}</div></div>`:''}`;
   } else if(S.nutriTab==='recipes'){
     const allergyMap={'gluten_free':'gluten','lactose_free':'lactose','no_nuts':'nuts','no_seafood':'seafood'};
     const userAllergens=S.user.allergies.map(a=>allergyMap[a]).filter(Boolean);
     let filtered=RECIPES.filter(r=>!userAllergens.some(a=>r.allergies.includes(a)));
     if(S.user.targetWeight&&S.user.targetWeight!==S.user.weight)filtered=filtered.filter(r=>r.goal.includes(goal));
     if(S.recipeSearch)filtered=filtered.filter(r=>(r.name[lang]||r.name.en).toLowerCase().includes(S.recipeSearch.toLowerCase()));
+    const foundR=S.foundRecipe||ld('found_recipe',null);
     bodyHtml=`
-    <input class="inp" placeholder="${lang==='ru'?'Поиск рецептов...':'Search recipes...'}" value="${escH(S.recipeSearch)}" oninput="setRecipeSearch(this.value)" style="margin-bottom:10px"/>
+    <div style="margin-bottom:12px">
+      <div style="display:flex;gap:8px">
+        <input class="inp" id="recipeSearchAI" placeholder="${lang==='ru'?'Найти рецепт... (напр. курица рис)':'Search recipe... (e.g. chicken rice)'}" style="flex:1"/>
+        <button class="btn-add" onclick="searchRecipeAI()" style="white-space:nowrap;font-size:12px;padding:10px 12px">${lang==='ru'?'🔍 Найти':'🔍 Find'}</button>
+      </div>
+    </div>
+    ${foundR?`<div class="card" style="margin-bottom:12px;border:1.5px solid var(--teal)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <span style="font-size:28px">${foundR.ico||'🍽️'}</span>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700;color:var(--text)">${escH(foundR.name)}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${foundR.kcal} kcal · ${foundR.protein}g ${lang==='ru'?'б':'p'} · ${foundR.carbs}g ${lang==='ru'?'у':'c'} · ${foundR.fat}g ${lang==='ru'?'ж':'f'} · ⏱ ${foundR.time} ${lang==='ru'?'мин':'min'}</div>
+        </div>
+      </div>
+      ${foundR.ingredients?.length?`<div style="margin-bottom:8px"><div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${lang==='ru'?'Ингредиенты':'Ingredients'}</div>${foundR.ingredients.map(i=>`<div style="font-size:11px;color:var(--text2);padding:1px 0">• ${escH(i)}</div>`).join('')}</div>`:''}
+      ${foundR.steps?.length?`<div style="margin-bottom:8px"><div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${lang==='ru'?'Приготовление':'Steps'}</div>${foundR.steps.map((s,i)=>`<div style="font-size:11px;color:var(--text2);padding:2px 0">${i+1}. ${escH(s)}</div>`).join('')}</div>`:''}
+      ${foundR.tip?`<div style="font-size:11px;color:var(--amber);padding:8px;background:var(--amber2);border-radius:var(--r-sm);margin-bottom:8px">💡 ${escH(foundR.tip)}</div>`:''}
+      <div style="display:flex;gap:8px">
+        <button onclick="S.meals.push({name:S.foundRecipe?.name||ld('found_recipe',{}).name,kcal:S.foundRecipe?.kcal||ld('found_recipe',{}).kcal||0,p:S.foundRecipe?.protein||0,c:S.foundRecipe?.carbs||0,f:S.foundRecipe?.fat||0});sv('meals_'+tk(),S.meals);toast('+${foundR.kcal} kcal');render()" style="flex:1;padding:9px;background:var(--teal);border:none;border-radius:var(--r-sm);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-b)">${lang==='ru'?'+ Добавить в журнал':'+ Add to log'}</button>
+        <button onclick="S.foundRecipe=null;sv('found_recipe',null);render()" style="padding:9px 14px;background:var(--glass);border:1px solid var(--border2);border-radius:var(--r-sm);color:var(--text3);font-size:12px;cursor:pointer;font-family:var(--font-b)">${lang==='ru'?'Удалить':'Clear'}</button>
+      </div>
+    </div>`:''}
+    <input class="inp" placeholder="${lang==='ru'?'Фильтр по названию...':'Filter by name...'}" value="${escH(S.recipeSearch)}" oninput="setRecipeSearch(this.value)" style="margin-bottom:10px"/>
     ${filtered.map(r=>`<div class="card" style="margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
         <span style="font-size:26px">${r.ico}</span>
@@ -1415,7 +1488,16 @@ function rNutrition(){
   ${tabHtml}${bodyHtml}`;
 }
 
-function addMeal(){const n=document.getElementById('mName')?.value.trim(),k=parseInt(document.getElementById('mKcal')?.value);if(!n||!k||k<=0){toast(lang==='ru'?'Введи название и калории':'Enter name and calories');return;}S.meals.push({name:n,kcal:k});sv('meals_'+tk(),S.meals);sv('total_meals_logged',ld('total_meals_logged',0)+1);addXP(5);render();}
+function addMeal(){
+  const n=document.getElementById('mName')?.value.trim();
+  const k=parseInt(document.getElementById('mKcal')?.value);
+  if(!n||!k||k<=0){toast(lang==='ru'?'Введи название и калории':'Enter name and calories');return;}
+  const p=parseInt(document.getElementById('mProt')?.value)||0;
+  const c=parseInt(document.getElementById('mCarb')?.value)||0;
+  const f=parseInt(document.getElementById('mFat')?.value)||0;
+  S.meals.push({name:n,kcal:k,p,c,f});
+  sv('meals_'+tk(),S.meals);sv('total_meals_logged',ld('total_meals_logged',0)+1);addXP(5);render();
+}
 function delMeal(i){S.meals.splice(i,1);sv('meals_'+tk(),S.meals);render();}
 
 async function photoFood(){
@@ -1428,11 +1510,11 @@ async function photoFood(){
     reader.onload=async(ev)=>{
       const b64=ev.target.result.split(',')[1];
       try{
-        const res=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getKey()},body:JSON.stringify({model:'gpt-4o-mini',max_tokens:100,messages:[{role:'user',content:[{type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b64}},{type:'text',text:`Identify the food and estimate calories. Return JSON only: {"name":"food name","kcal":number}. Language: ${lang}`}]}]})});
+        const res=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getKey()},body:JSON.stringify({model:'gpt-4o-mini',max_tokens:150,messages:[{role:'user',content:[{type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b64}},{type:'text',text:`Identify the food and estimate nutrition. Return ONLY valid JSON, no markdown: {"name":"food name in ${lang==='ru'?'Russian':'English'}","kcal":number,"protein":number,"carbs":number,"fat":number}`}]}]})});
         const data=await res.json();
         const text=data.choices?.[0]?.message?.content||'{}';
         const parsed=JSON.parse(text.replace(/```json|```/g,'').trim());
-        if(parsed.name&&parsed.kcal){S.meals.push({name:parsed.name,kcal:parsed.kcal});sv('meals_'+tk(),S.meals);toast(`✓ ${parsed.name}: ${parsed.kcal} kcal`);render();}
+        if(parsed.name&&parsed.kcal){S.meals.push({name:parsed.name,kcal:parsed.kcal,p:parsed.protein||0,c:parsed.carbs||0,f:parsed.fat||0});sv('meals_'+tk(),S.meals);toast(`✓ ${parsed.name}: ${parsed.kcal} kcal`);render();}
       }catch(e){toast('Error');}
     };reader.readAsDataURL(file);
   };input.click();
@@ -1443,8 +1525,38 @@ function toggleAllergy(id){
   if(idx>=0)S.user.allergies.splice(idx,1);else S.user.allergies.push(id);
   sv('user',S.user);render();
 }
+function setNutGoal(goal){S.user.nutGoal=goal;sv('user',S.user);render();}
+async function searchRecipeAI(){
+  if(!getKey()){toast(lang==='ru'?'Нужен OpenAI ключ':'Need OpenAI key');tab('settings');return;}
+  const query=document.getElementById('recipeSearchAI')?.value.trim();
+  if(!query){toast(lang==='ru'?'Введи название рецепта':'Enter recipe name');return;}
+  toast('⏳ '+(lang==='ru'?'Ищу рецепт...':'Searching recipe...'));
+  try{
+    const allergies=S.user.allergies?.join(', ')||'none';
+    const nutGoal=S.user.nutGoal||'lose';
+    const res=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getKey()},body:JSON.stringify({model:'gpt-4o-mini',max_tokens:500,messages:[{role:'user',content:`Create a healthy recipe for: "${query}". User goal: ${nutGoal} weight. Allergies: ${allergies}. Return ONLY valid JSON: {"name":"recipe name","ico":"one emoji","kcal":number,"protein":number,"carbs":number,"fat":number,"time":number,"steps":["step1","step2","step3"],"ingredients":["item1","item2"],"tip":"one cooking tip"}. Language: ${lang==='ru'?'Russian':'English'}.`}]})});
+    const data=await res.json();
+    const text=data.choices?.[0]?.message?.content||'{}';
+    const recipe=JSON.parse(text.replace(/```json|```/g,'').trim());
+    if(recipe.name){S.foundRecipe=recipe;sv('found_recipe',recipe);toast('✓ '+(lang==='ru'?'Рецепт найден!':'Recipe found!'));render();}
+  }catch(e){toast(lang==='ru'?'Ошибка поиска':'Search error');}
+}
 function setNutriTab(tab){S.nutriTab=tab;render();}
 function setRecipeSearch(v){S.recipeSearch=v;render();}
+async function getAINutritionist(){
+  if(!getKey()){toast(lang==='ru'?'Нужен OpenAI ключ':'Need OpenAI key');tab('settings');return;}
+  const nutGoal=S.user.nutGoal||'lose';
+  const totalCals=S.meals.reduce((s,m)=>s+m.kcal,0);
+  const bmr=Math.round(10*S.user.weight+6.25*S.user.height-5*30+(nutGoal==='lose'?5:-161));
+  const kcalGoal=Math.round(bmr*(S.user.activityLevel==='low'?1.375:S.user.activityLevel==='medium'?1.55:1.725));
+  toast('⏳ '+(lang==='ru'?'Анализирую...':'Analyzing...'));
+  try{
+    const res=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getKey()},body:JSON.stringify({model:'gpt-4o-mini',max_tokens:400,messages:[{role:'user',content:`You are a professional nutritionist. Based on: weight ${S.user.weight}kg, height ${S.user.height}cm, target ${S.user.targetWeight}kg, goal: ${nutGoal}, allergies: ${S.user.allergies?.join(', ')||'none'}, today's calories: ${totalCals}/${kcalGoal}. Give: 1) Daily calorie target 2) Macro breakdown (protein/carbs/fat in grams) 3) Meal timing recommendations 4) Top 3 food recommendations 5) Foods to avoid. Language: ${lang==='ru'?'Russian':'English'}. Be specific and practical.`}]})});
+    const data=await res.json();
+    const advice=data.choices?.[0]?.message?.content||'';
+    if(advice){sv('nutritionist_advice_'+tk(),advice);toast('✅ '+(lang==='ru'?'Готово!':'Done!'));render();}
+  }catch(e){toast('Error');}
+}
 function addRecipeToLog(id){
   const r=RECIPES.find(x=>x.id===id);if(!r)return;
   S.meals.push({name:r.name[lang]||r.name.en,kcal:r.kcal,p:r.protein,c:r.carbs,f:r.fat});
@@ -1529,7 +1641,8 @@ function rAI(){
       <div class="learn-tips-title">${lang==='ru'?'Советы':'Tips'}</div>
       ${tips.map(tip=>`<div class="learn-tip">${tip}</div>`).join('')}
     </div>
-    <a style="display:block;text-align:center;font-size:12px;color:var(--p2);margin-bottom:12px;text-decoration:none" href="${lesson.link}" target="_blank">📖 ${lang==='ru'?'Открыть ресурс':'Open resource'} →</a>
+    <a style="display:block;text-align:center;font-size:12px;color:var(--p2);margin-bottom:8px;text-decoration:none" href="${lesson.link}" target="_blank">📖 ${lang==='ru'?'Открыть ресурс':'Open resource'} →</a>
+    <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(title+' tutorial '+lang)}" target="_blank" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(255,0,0,0.08);border:1px solid rgba(255,0,0,0.15);border-radius:var(--r-sm);margin-bottom:12px;text-decoration:none"><span style="font-size:18px">▶️</span><span style="font-size:12px;color:#ff4444;font-weight:500">${lang==='ru'?'Найти видео на YouTube':'Find video on YouTube'}</span><span style="margin-left:auto;font-size:11px;color:var(--text3)">→</span></a>
     ${allDone
       ?`<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:8px">🎓</div><div style="font-size:14px;color:var(--text2);margin-bottom:12px">${lang==='ru'?'Все уроки пройдены!':'All lessons complete!'}</div><button class="btn-main" onclick="generateAILesson('${subj}')">${lang==='ru'?'🤖 Сгенерировать новый урок':'🤖 Generate new lesson'}</button></div>`
       :`<button class="complete-btn" onclick="startQuiz()">${lang==='ru'?'Отметить выполнение ✓':'Mark as complete ✓'}</button>`
@@ -1844,19 +1957,30 @@ async function generateAIPlanTomorrow(){
 
 function checkMorningLoad(){
   const raw=ld('tomorrow_tasks','');
-  if(!raw.trim())return;
-  const lines=raw.split('\n').map(l=>l.trim()).filter(Boolean);
-  if(!lines.length)return;
-  const existing=S.customTasks.map(c=>c.name);
-  let time=7*60; // start at 07:00
-  lines.forEach(line=>{
-    if(!existing.includes(line)){
-      S.customTasks.push({name:line,time:String(Math.floor(time/60)).padStart(2,'0')+':'+String(time%60).padStart(2,'0'),dur:30,ico:'📌',done:false});
-      time+=35;
-    }
-  });
-  sv('custom_tasks_'+tk(),S.customTasks);
-  sv('tomorrow_tasks','');
+  if(raw.trim()){
+    const lines=raw.split('\n').map(l=>l.trim()).filter(Boolean);
+    const existing=S.customTasks.map(c=>c.name);
+    let time=7*60;
+    lines.forEach(line=>{
+      if(!existing.includes(line)){
+        S.customTasks.push({name:line,time:String(Math.floor(time/60)).padStart(2,'0')+':'+String(time%60).padStart(2,'0'),dur:30,ico:'📌',done:false});
+        time+=35;
+      }
+    });
+    sv('custom_tasks_'+tk(),S.customTasks);
+    sv('tomorrow_tasks','');
+  }
+  const hour=new Date().getHours();
+  const botTasks=ld('bot_tasks_tomorrow',[]);
+  if(botTasks.length>0&&hour>=5&&hour<10){
+    botTasks.forEach(task=>{
+      if(!S.customTasks.find(t=>t.name===task.name)){
+        S.customTasks.push({id:Date.now()+Math.random(),name:task.name,ico:task.ico||'📋',time:task.time||'10:00',duration:task.duration||30,done:false,custom:true,type:'task'});
+      }
+    });
+    sv('custom_tasks_'+tk(),S.customTasks);
+    sv('bot_tasks_tomorrow',[]);
+  }
 }
 
 const BREATH_PATTERNS=[
@@ -1909,6 +2033,7 @@ function adjustPlanForHealth(){
   if(h.energy<=3&&h.energy>0)suggestions.push({type:'warning',text:{ru:'Низкая энергия — перенеси тяжёлые задачи на вечер',en:'Low energy — move heavy tasks to evening'}});
   if(h.stress>=8){suggestions.push({type:'add_habit',habitId:'meditate',text:{ru:'Высокий стресс — добавь медитацию',en:'High stress — add meditation'}});suggestions.push({type:'add_habit',habitId:'walk',text:{ru:'Прогулка поможет снизить стресс',en:'A walk will help reduce stress'}});}
   if(h.sleep<=4&&h.sleep>0)suggestions.push({type:'add_habit',habitId:'nap',text:{ru:'Мало спал — добавь дневной сон',en:'Low sleep — add a power nap'}});
+  if(h.stress>=7)suggestions.push({type:'food_tip',text:{ru:'Высокий стресс — избегай кофеина и сахара. Ешь магний: орехи, шоколад, бананы',en:'High stress — avoid caffeine and sugar. Eat magnesium: nuts, dark chocolate, bananas'}});
   return suggestions;
 }
 
@@ -2086,7 +2211,7 @@ function rJournal(){
     <div class="j-prompt">${t().quick_note}</div>
     <textarea class="j-ta" id="noteText" placeholder="${lang==='ru'?'Запиши мысль, идею или цитату...':'Write a thought, idea or quote...'}"></textarea>
     <div style="display:flex;gap:8px;margin-top:8px">
-      <button class="btn-main" onclick="saveNote()">${t().save}</button>
+      <button class="btn-main" onclick="saveNote()" style="background:var(--teal);border-color:var(--teal)">${t().save}</button>
     </div>
   </div>
   <div class="stitle">${lang==='ru'?'Мои записи':'My notes'} (${notes.length})</div>
@@ -2228,7 +2353,8 @@ function rStats(){
 
   ${(()=>{
     const curr=getWeekStats(0),prev=getWeekStats(1);
-    if(!curr||!prev)return '';
+    if(!curr)return '';
+    if(!prev)return `<div class="stitle">${lang==='ru'?'Сравнение недель':'Week Comparison'} 📊</div><div class="card"><div style="font-size:12px;color:var(--text3);text-align:center;padding:8px">${lang==='ru'?'Данных прошлой недели пока нет — продолжай использовать приложение':'No last week data yet — keep using the app'}</div></div>`;
     return `<div class="stitle">${lang==='ru'?'Сравнение недель':'Week Comparison'} 📊</div>
     <div class="card">
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;text-align:center">
@@ -2346,7 +2472,6 @@ function rSettings(){
     <input class="inp" id="sName" value="${S.user.name}" placeholder="${lang==='ru'?'Твоё имя':'Your name'}" style="margin-bottom:8px"/>
     <div class="j-prompt">${lang==='ru'?'Цель':'Goal'}</div>
     ${(()=>{const goals=[{ico:'🚀',label:{ru:'$1M на AI',en:'$1M on AI'}},{ico:'🏢',label:{ru:'AI агентство',en:'AI Agency'}},{ico:'🧠',label:{ru:'Изучить AI',en:'Learn AI'}},{ico:'🎸',label:{ru:'Музыка',en:'Music'}},{ico:'💪',label:{ru:'Здоровье',en:'Health & Fitness'}},{ico:'💼',label:{ru:'Бизнес',en:'Business'}},{ico:'🗣️',label:{ru:'Языки',en:'Languages'}},{ico:'🎨',label:{ru:'Дизайн',en:'Design'}},{ico:'✍️',label:{ru:'Творчество',en:'Creative'}},{ico:'🎯',label:{ru:'Продуктивность',en:'Productivity'}}];const cur=goals.find(g=>g.label[lang]===S.user.goal)||goals[0];return `<div class="goal-dropdown"><div class="goal-selected" onclick="toggleGoalDrop()"><span style="font-size:20px">${cur.ico}</span><span style="flex:1;font-size:14px;font-weight:500;color:var(--text2)">${S.user.goal||cur.label[lang]}</span><span class="goal-arrow ${_goalDropOpen?'open':''}">▼</span></div><div class="goal-opts ${_goalDropOpen?'open':''}">${goals.map(g=>`<div class="goal-opt" onclick="selectGoalDrop('${g.label[lang]}')"><span style="font-size:18px">${g.ico}</span><span style="flex:1;font-size:13px;color:var(--text2)">${g.label[lang]}</span>${S.user.goal===g.label[lang]?'<span style="color:var(--p2)">✓</span>':''}</div>`).join('')}</div></div>`;})()}
-    <input class="inp" id="sGoal" value="${S.user.goal}" placeholder="${lang==='ru'?'Или введи свою цель...':'Or type your own goal...'}" style="margin-bottom:8px"/>
     <div class="j-prompt">${lang==='ru'?'Время подъёма':'Wake up time'}</div>
     ${(()=>{
       const parts=S.user.wakeTime?S.user.wakeTime.split(':'):[];
@@ -2421,6 +2546,23 @@ function rSettings(){
     </div>`;
   })()}
 
+  <div class="stitle">${lang==='ru'?'Интеграция с ботом':'Bot Integration'}</div>
+  <div class="j-card">
+    <div class="j-prompt">${lang==='ru'?'Бот @DailyhabbitOs_bot каждый вечер спрашивает твои задачи и добавляет их в план на завтра':'Bot @DailyhabbitOs_bot asks your tasks every evening and adds them to tomorrow plan'}</div>
+    <div style="background:var(--bg3);border-radius:var(--r-sm);padding:12px;margin-top:8px">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px;font-weight:500">${lang==='ru'?'Как это работает:':'How it works:'}</div>
+      <div style="font-size:11px;color:var(--text3);line-height:1.8">
+        1. ${lang==='ru'?'В 21:00 бот пишет тебе':'At 21:00 bot messages you'}<br>
+        2. ${lang==='ru'?'Ты пишешь свои задачи на завтра':'You write your tasks for tomorrow'}<br>
+        3. ${lang==='ru'?'Бот добавляет их в план':'Bot adds them to your plan'}<br>
+        4. ${lang==='ru'?'Утром открываешь приложение — план готов':'Morning you open app — plan is ready'}
+      </div>
+    </div>
+    <a href="https://t.me/DailyhabbitOs_bot" target="_blank" style="display:block;margin-top:10px;padding:11px;background:var(--p);border-radius:var(--r-sm);color:#fff;text-align:center;text-decoration:none;font-size:13px;font-weight:600">
+      ${lang==='ru'?'Открыть бота':'Open Bot'} @DailyhabbitOs_bot
+    </a>
+  </div>
+
   <div class="sett-section">
     <div class="sett-item" onclick="clearChat()"><div class="sett-ico">🗑</div><div class="sett-text"><div class="sett-label">${lang==='ru'?'Очистить чат':'Clear chat'}</div></div><div class="sett-arr">›</div></div>
     <div class="sett-item" onclick="resetDay()"><div class="sett-ico">🔄</div><div class="sett-text"><div class="sett-label">${lang==='ru'?'Сбросить план дня':'Reset day plan'}</div></div><div class="sett-arr">›</div></div>
@@ -2484,8 +2626,9 @@ const OB=[
   {
     title:{ru:'Твои параметры',en:'Your parameters'},
     render:()=>`
-      <div class="ob-row"><div class="ob-half"><input class="ob-inp" id="obW" type="number" placeholder="${lang==='ru'?'Вес кг':'Weight kg'}" value="89"/></div><div class="ob-half"><input class="ob-inp" id="obT" type="number" placeholder="${lang==='ru'?'Цель кг':'Target kg'}" value="80"/></div></div>
-      <input class="ob-inp" id="obH" type="number" placeholder="${lang==='ru'?'Рост см':'Height cm'}" value="178"/>
+      <div style="margin-bottom:12px"><div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">${lang==='ru'?'Текущий вес (кг)':'Current weight (kg)'}</div><input class="ob-inp" id="obW" type="number" placeholder="89" value="89"/></div>
+      <div style="margin-bottom:12px"><div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">${lang==='ru'?'Целевой вес (кг)':'Target weight (kg)'}</div><input class="ob-inp" id="obT" type="number" placeholder="80" value="80"/></div>
+      <div style="margin-bottom:12px"><div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">${lang==='ru'?'Рост (см)':'Height (cm)'}</div><input class="ob-inp" id="obH" type="number" placeholder="178" value="178"/></div>
       <div class="ob-grid">
         <div class="ob-opt on" onclick="obSel(this,'low')"><span class="ob-opt-ico">🚶</span>${lang==='ru'?'Мало двигаюсь':'Low activity'}</div>
         <div class="ob-opt" onclick="obSel(this,'medium')"><span class="ob-opt-ico">🏃</span>${lang==='ru'?'Умеренно':'Moderate'}</div>
@@ -2574,10 +2717,13 @@ document.getElementById('hdrDate').textContent=dayNames[now.getDay()]+', '+now.g
 try{window.Telegram?.WebApp?.ready();window.Telegram?.WebApp?.expand();}catch(e){}
 updStreak();
 
-if(!ld('ob_done',false)){
+const obDone=ld('ob_done',false);
+const hasName=(S.user.name||'').trim().length>0;
+if(!obDone&&!hasName){
   document.getElementById('ob').style.display='flex';
   renderOB();
 } else {
+  sv('ob_done',true);
   const _hashMap={'#habits':'habits','#nutrition':'nutrition','#focus':'ai','#stats':'stats','#settings':'settings','#health':'health','#breath':'breath','#journal':'journal','#chat':'chat'};
   const _initHash=window.location.hash;
   if(_hashMap[_initHash])S.tab=_hashMap[_initHash];
