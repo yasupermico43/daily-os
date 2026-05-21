@@ -114,6 +114,8 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:radial-gradi
 /* DAY PLAN ITEMS */
 .plan-item{display:flex;align-items:stretch;gap:10px;margin-bottom:6px;cursor:pointer;transition:all .2s}
 .plan-item:active{opacity:.8}
+.plan-item.dragging{opacity:.45;border:2px dashed var(--p)!important;border-radius:var(--r)}
+.plan-item.drag-over{border:2px solid var(--teal)!important;border-radius:var(--r);transform:scale(1.01)}
 .plan-time-col{width:44px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:0}
 .plan-time-txt{font-size:10px;font-weight:700;color:var(--text3);font-family:var(--font-h);padding-top:10px}
 .plan-line{width:1px;flex:1;background:var(--border);margin-top:4px}
@@ -651,6 +653,27 @@ const HABIT_LIB = [
   {id:'nap',ico:'😴',name:{ru:'Дневной сон',en:'Power nap'},time:'14:00',cat:'Health'},
 ];
 
+// Habits that are flexible / anytime (no fixed slot in the day)
+const NO_FIXED_TIME_IDS=new Set(['read','guitar','piano','draw','write','music','photo','gaming','podcast','bio_read']);
+HABIT_LIB.forEach(h=>{h.hasTime=!NO_FIXED_TIME_IDS.has(h.id);});
+
+function getTimeOffset(){
+  const base='5:30';
+  const wake=S.user.wakeTime||'5:30';
+  const[bh,bm]=base.split(':').map(Number);
+  const[wh,wm]=wake.split(':').map(Number);
+  return(wh*60+wm)-(bh*60+bm);
+}
+function shiftTime(timeStr,offsetMinutes){
+  if(!timeStr)return timeStr;
+  const[h,m]=timeStr.split(':').map(Number);
+  if(isNaN(h)||isNaN(m))return timeStr;
+  let total=h*60+m+offsetMinutes;
+  total=((total%1440)+1440)%1440;
+  const nh=Math.floor(total/60),nm=total%60;
+  return `${String(nh).padStart(2,'0')}:${String(nm).padStart(2,'0')}`;
+}
+
 const AI_TASKS = {
   ai: [
     {title:{ru:'Промпт-инжиниринг',en:'Prompt Engineering'},desc:{ru:'Напиши один запрос 3 разными способами. Сравни результаты.',en:'Write the same request 3 different ways. Compare results.'},tips:{ru:['Открой Claude.ai','Задай один вопрос тремя способами','Запиши что сработало лучше'],en:['Open Claude.ai','Ask one question three ways','Note which worked best']},link:'https://learn.deeplearning.ai'},
@@ -955,24 +978,32 @@ function rHome(){
          </div>`}
   </div>`;
 
-  // Combine habit items and custom tasks, sorted by time
+  // Combine habit items and custom tasks, sorted by shifted time
+  const _offset=getTimeOffset();
   const habitItems=S.dayPlan.map((p,i)=>{
     const h=HABIT_LIB.find(x=>x.id===p.id);
     if(!h)return null;
-    return {kind:'habit',idx:i,time:h.time||'09:00',ico:h.ico,name:h.name[lang]||h.name.ru,cat:h.cat,done:p.done,dur:h.dur||30};
+    const baseTime=h.time||'09:00';
+    const displayTime=p.customTime||(h.hasTime?shiftTime(baseTime,_offset):null);
+    const copyCount=S.dayPlan.filter(x=>x.id===p.id).length;
+    const copyIdx=S.dayPlan.slice(0,i).filter(x=>x.id===p.id).length;
+    const displayName=p.customName||(h.name[lang]||h.name.ru)+(copyCount>1?` #${copyIdx+1}`:'');
+    return {kind:'habit',idx:i,time:displayTime,baseTime,ico:h.ico,name:displayName,cat:h.cat,done:p.done,dur:h.dur||30,hasTime:h.hasTime};
   }).filter(Boolean);
-  const customItems=S.customTasks.map((c,i)=>({kind:'custom',idx:i,time:c.time||'09:00',ico:c.ico||'✅',name:c.name,cat:'',done:c.done,dur:c.dur||30}));
-  const allItems=[...habitItems,...customItems].sort((a,b)=>timeToMinutes(a.time)-timeToMinutes(b.time));
+  const customItems=S.customTasks.map((c,i)=>({kind:'custom',idx:i,time:c.time||'09:00',ico:c.ico||'✅',name:c.name,cat:'',done:c.done,dur:c.dur||30,hasTime:true}));
+  const allItems=[...habitItems,...customItems];
+  const withTime=allItems.filter(it=>it.hasTime&&it.time).sort((a,b)=>timeToMinutes(a.time)-timeToMinutes(b.time));
+  const withoutTime=allItems.filter(it=>!it.hasTime||!it.time);
 
-  const planItems=allItems.map(item=>{
+  const renderPlanItem=(item,index)=>{
     if(S.editingPlan&&S.editingPlan.kind===item.kind&&S.editingPlan.idx===item.idx){
       return `<div class="plan-item" style="background:var(--bg2)">
-        <div class="plan-time-col"><div class="plan-time-txt">${item.time}</div><div class="plan-line"></div></div>
+        <div class="plan-time-col"><div class="plan-time-txt">${item.time||''}</div><div class="plan-line"></div></div>
         <div class="plan-body" style="flex:1">
-          <input id="editName" value="${escH(item.name)}" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;color:var(--text2);box-sizing:border-box;margin-bottom:6px"/>
-          <input id="editTime" value="${item.time}" type="time" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;color:var(--text2);margin-bottom:6px"/>
+          <input id="editName_${index}" value="${escH(item.name)}" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;color:var(--text2);box-sizing:border-box;margin-bottom:6px"/>
+          <input id="editTime_${index}" value="${item.time||''}" type="time" style="background:var(--bg3);border:1px solid var(--p);border-radius:8px;padding:6px 10px;color:var(--text);font-size:14px;font-weight:600;margin-bottom:6px"/>
           <div style="display:flex;gap:8px">
-            <button class="plan-action-btn" onclick="savePlanItemEdit()">${lang==='ru'?'Сохранить':'Save'}</button>
+            <button class="plan-action-btn" onclick="savePlanItemEdit(${index},'${item.kind}',${item.idx})">${lang==='ru'?'Сохранить':'Save'}</button>
             <button class="plan-action-btn" onclick="cancelEditPlan()">${lang==='ru'?'Отмена':'Cancel'}</button>
           </div>
         </div>
@@ -980,12 +1011,18 @@ function rHome(){
     }
     const onToggle=item.kind==='habit'?`togglePlan(${item.idx})`:`toggleCustomTask(${item.idx})`;
     const onRemove=item.kind==='custom'?`<button class="plan-action-btn" onclick="event.stopPropagation();removeCustomTask(${item.idx})" style="color:var(--coral)">✕</button>`:'';
-    return `<div class="plan-item" data-habit-id="${item.kind}-${item.idx}" onclick="${onToggle}">
-      <div class="plan-time-col">
-        <div class="plan-time-txt">${item.time}</div>
-        <div class="plan-line"></div>
-      </div>
-      <div class="plan-body ${item.done?'done':''}">
+    return `<div class="plan-item" data-habit-id="${item.kind}-${item.idx}" data-index="${index}"
+      draggable="true"
+      ondragstart="onDragStart(event,${index})"
+      ondragover="onDragOver(event,${index})"
+      ondrop="onDrop(event,${index})"
+      ondragend="onDragEnd(event)"
+      ontouchstart="onTouchStart(event,${index})"
+      ontouchmove="onTouchMove(event)"
+      ontouchend="onTouchEnd(event)"
+      onclick="${onToggle}">
+      ${item.time?`<div class="plan-time-col"><div class="plan-time-txt">${item.time}</div><div class="plan-line"></div></div>`:''}
+      <div class="plan-body ${item.done?'done':''}" style="${!item.time?'padding-left:8px':''}">
         <div class="plan-body-top">
           <span class="plan-ico">${item.ico}</span>
           <span class="plan-title">${escH(item.name)}</span>
@@ -1000,7 +1037,13 @@ function rHome(){
         </div>`}
       </div>
     </div>`;
-  }).join('');
+  };
+
+  const planItems=[
+    ...withTime.map((item,i)=>renderPlanItem(item,i)),
+    withoutTime.length?`<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:10px 2px 6px">${lang==='ru'?'В любое время':'Anytime'}</div>`:'',
+    ...withoutTime.map((item,i)=>renderPlanItem(item,withTime.length+i)),
+  ].join('');
 
   const emptyPlan=!allItems.length?`<div style="text-align:center;padding:30px 0;color:var(--text3)">
     <div style="font-size:32px;margin-bottom:8px">📋</div>
@@ -1123,13 +1166,19 @@ function rHabits(){
 
   const catBtns=cats.map(c=>`<button class="lib-cat ${(!S.libCat&&c==='All')||(S.libCat===c)?'on':''}" onclick="setLibCat('${c}')">${c==='All'?t().all_cats:c}</button>`).join('');
 
+  const _off=getTimeOffset();
   const items=filtered.map(h=>{
-    const added=S.myHabits.includes(h.id);
+    const count=S.myHabits.filter(x=>x===h.id).length;
     const name=h.name[lang]||h.name.ru;
-    return `<div class="lib-item ${added?'added':''}" onclick="toggleHabit('${h.id}')">
+    const timeLabel=h.hasTime?shiftTime(h.time,_off):(lang==='ru'?'Анytime':'Anytime');
+    return `<div class="lib-item ${count>0?'added':''}" onclick="addHabitCopy('${h.id}')">
       <span class="lib-ico">${h.ico}</span>
-      <span class="lib-name">${name}<br><span style="font-size:9px;color:var(--text3)">${h.time} · ${h.cat}</span></span>
-      <span class="lib-add">${added?'✓':'+'}</span>
+      <span class="lib-name">${name}<br><span style="font-size:9px;color:var(--text3)">${timeLabel} · ${h.cat}</span></span>
+      <div style="display:flex;align-items:center;gap:4px">
+        ${count>0?`<span style="font-size:11px;background:var(--p3);color:var(--p2);padding:2px 7px;border-radius:20px;font-weight:700">${count}×</span>
+        <button onclick="event.stopPropagation();removeHabitCopy('${h.id}')" style="width:24px;height:24px;border-radius:50%;background:var(--glass2);border:1px solid var(--border);color:var(--text2);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font-b)">−</button>`:''}
+        <button onclick="event.stopPropagation();addHabitCopy('${h.id}')" style="width:24px;height:24px;border-radius:50%;background:${count>0?'var(--p3)':'var(--glass2)'};border:1px solid ${count>0?'var(--p)':'var(--border)'};color:${count>0?'var(--p2)':'var(--text2)'};font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font-b)">+</button>
+      </div>
     </div>`;
   }).join('');
 
@@ -1143,20 +1192,24 @@ function rHabits(){
 }
 
 function setLibCat(c){S.libCat=c==='All'?null:c;render();}
-function toggleHabit(id){
-  const idx=S.myHabits.indexOf(id);
-  if(idx>=0){
-    S.myHabits.splice(idx,1);
-    S.dayPlan=S.dayPlan.filter(p=>p.id!==id);
-    toast('−');
-  } else {
-    S.myHabits.push(id);
-    S.dayPlan.push({id,done:false});
-    S.dayPlan.sort((a,b)=>{const ha=HABIT_LIB.find(x=>x.id===a.id),hb=HABIT_LIB.find(x=>x.id===b.id);return timeToMinutes(ha?.time||'23:59')-timeToMinutes(hb?.time||'23:59');});
-    toast('✓ '+(lang==='ru'?'Добавлено в план':'Added to plan'));
-  }
+function addHabitCopy(id){
+  const h=HABIT_LIB.find(x=>x.id===id);if(!h)return;
+  const copies=S.dayPlan.filter(p=>p.id===id).length;
+  if(copies>=10){toast(lang==='ru'?'Максимум 10 копий':'Max 10 copies');return;}
+  S.myHabits.push(id);
+  S.dayPlan.push({id,done:false,copyIndex:copies});
+  S.dayPlan.sort((a,b)=>{const ha=HABIT_LIB.find(x=>x.id===a.id),hb=HABIT_LIB.find(x=>x.id===b.id);return timeToMinutes(ha?.time||'23:59')-timeToMinutes(hb?.time||'23:59');});
+  sv('my_habits',S.myHabits);sv('day_plan_'+tk(),S.dayPlan);
+  toast('✓ '+(lang==='ru'?'Добавлено':'Added'));render();
+}
+function removeHabitCopy(id){
+  const lastIdx=S.dayPlan.map(p=>p.id).lastIndexOf(id);
+  if(lastIdx>=0)S.dayPlan.splice(lastIdx,1);
+  const mIdx=S.myHabits.lastIndexOf(id);
+  if(mIdx>=0)S.myHabits.splice(mIdx,1);
   sv('my_habits',S.myHabits);sv('day_plan_'+tk(),S.dayPlan);render();
 }
+function toggleHabit(id){addHabitCopy(id);}
 
 // ── HEALTH ───────────────────────────────────────────────────────────────────
 function rHealth(){
@@ -1842,16 +1895,86 @@ function removeCustomTask(i){
 function editPlanItem(kind,idx){S.editingPlan={kind,idx};render();}
 function cancelEditPlan(){S.editingPlan=null;render();}
 
-function savePlanItemEdit(){
-  const name=document.getElementById('editName')?.value.trim();
-  const time=document.getElementById('editTime')?.value;
+function savePlanItemEdit(renderIndex,kind,idx){
+  const name=document.getElementById('editName_'+renderIndex)?.value.trim();
+  const time=document.getElementById('editTime_'+renderIndex)?.value;
   if(!name){toast(lang==='ru'?'Введи название':'Enter a name');return;}
-  if(S.editingPlan.kind==='custom'){
-    S.customTasks[S.editingPlan.idx].name=name;
-    S.customTasks[S.editingPlan.idx].time=time||S.customTasks[S.editingPlan.idx].time;
+  if(kind==='custom'){
+    S.customTasks[idx].name=name;
+    if(time)S.customTasks[idx].time=time;
     sv('custom_tasks_'+tk(),S.customTasks);
+  } else {
+    if(time)S.dayPlan[idx].customTime=time;
+    S.dayPlan[idx].customName=name;
+    sv('day_plan_'+tk(),S.dayPlan);
   }
   S.editingPlan=null;render();
+}
+
+// ── DRAG & DROP ───────────────────────────────────────────────────────────────
+let _dragIndex=null,_touchDragIndex=null,_touchClone=null;
+
+function onDragStart(e,index){
+  _dragIndex=index;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed='move';
+}
+function onDragOver(e,index){
+  e.preventDefault();e.dataTransfer.dropEffect='move';
+  document.querySelectorAll('.plan-item').forEach(el=>el.classList.remove('drag-over'));
+  e.currentTarget.classList.add('drag-over');
+}
+function onDrop(e,dropIndex){
+  e.preventDefault();
+  if(_dragIndex===null||_dragIndex===dropIndex){_dragIndex=null;return;}
+  // Collect same ordered allItems as render
+  const _off=getTimeOffset();
+  const habitItems=S.dayPlan.map((p,i)=>{const h=HABIT_LIB.find(x=>x.id===p.id);if(!h)return null;const displayTime=p.customTime||(h.hasTime?shiftTime(h.time,_off):null);return{kind:'habit',planIdx:i,time:displayTime,hasTime:h.hasTime};}).filter(Boolean);
+  const customItems=S.customTasks.map((c,i)=>({kind:'custom',taskIdx:i,time:c.time||'09:00',hasTime:true}));
+  const allItems=[...habitItems,...customItems];
+  const withTime=allItems.filter(it=>it.hasTime&&it.time).sort((a,b)=>timeToMinutes(a.time)-timeToMinutes(b.time));
+  const withoutTime=allItems.filter(it=>!it.hasTime||!it.time);
+  const ordered=[...withTime,...withoutTime];
+  const a=ordered[_dragIndex],b=ordered[dropIndex];
+  if(a&&b&&a.kind==='habit'&&b.kind==='habit'){
+    const ha=HABIT_LIB.find(x=>x.id===S.dayPlan[a.planIdx].id);
+    const hb=HABIT_LIB.find(x=>x.id===S.dayPlan[b.planIdx].id);
+    if(S.dayPlan[a.planIdx].customTime&&S.dayPlan[b.planIdx].customTime){
+      [S.dayPlan[a.planIdx].customTime,S.dayPlan[b.planIdx].customTime]=[S.dayPlan[b.planIdx].customTime,S.dayPlan[a.planIdx].customTime];
+    } else if(ha?.hasTime&&hb?.hasTime){
+      S.dayPlan[a.planIdx].customTime=shiftTime(hb.time,_off);
+      S.dayPlan[b.planIdx].customTime=shiftTime(ha.time,_off);
+    }
+    sv('day_plan_'+tk(),S.dayPlan);
+  }
+  _dragIndex=null;render();
+}
+function onDragEnd(e){
+  _dragIndex=null;
+  document.querySelectorAll('.plan-item').forEach(el=>{el.classList.remove('dragging');el.classList.remove('drag-over');});
+}
+function onTouchStart(e,index){
+  _touchDragIndex=index;
+  const item=e.currentTarget;
+  _touchClone=item.cloneNode(true);
+  _touchClone.style.cssText=`position:fixed;opacity:0.8;pointer-events:none;z-index:9999;width:${item.offsetWidth}px;border-radius:var(--r);background:var(--bg2);`;
+  document.body.appendChild(_touchClone);
+}
+function onTouchMove(e){
+  e.preventDefault();
+  if(!_touchClone)return;
+  const touch=e.touches[0];
+  _touchClone.style.left=(touch.clientX-20)+'px';
+  _touchClone.style.top=(touch.clientY-30)+'px';
+}
+function onTouchEnd(e){
+  if(_touchClone){_touchClone.remove();_touchClone=null;}
+  if(_touchDragIndex===null)return;
+  const touch=e.changedTouches[0];
+  const el=document.elementFromPoint(touch.clientX,touch.clientY);
+  const item=el?.closest('[data-index]');
+  if(item){const dropIndex=parseInt(item.dataset.index);_dragIndex=_touchDragIndex;onDrop({preventDefault:()=>{}},dropIndex);}
+  _touchDragIndex=null;
 }
 
 // ── MAIN FOCUS ────────────────────────────────────────────────────────────────
@@ -2618,10 +2741,12 @@ const OB=[
   },
   {
     title:{ru:'Во сколько просыпаешься?',en:'What time do you wake up?'},
-    render:()=>`<input class="ob-inp" id="obWake" placeholder="5:30" value="5:30"/><div class="ob-grid" style="margin-top:8px">
-      ${[['5:00','5:00 AM'],['5:30','5:30 AM'],['6:00','6:00 AM'],['6:30','6:30 AM'],['7:00','7:00 AM'],['7:30','7:30 AM']].map(([v,l])=>`<div class="ob-opt" onclick="document.getElementById('obWake').value='${v}'">${l}</div>`).join('')}
-    </div><button class="ob-btn" style="margin-top:12px" onclick="obNext()">${lang==='ru'?'Продолжить →':'Continue →'}</button>`,
-    save:()=>{S.user.wakeTime=document.getElementById('obWake')?.value||'5:30';}
+    render:()=>`<div style="text-align:center;padding:20px 0">
+      <input type="time" id="obWake" value="05:30" style="font-size:48px;font-weight:700;font-family:var(--font-h);color:var(--text);background:transparent;border:none;border-bottom:2px solid var(--p);outline:none;text-align:center;width:100%;padding:10px 0;-webkit-appearance:none;"/>
+      <div style="font-size:12px;color:var(--text3);margin-top:12px">${lang==='ru'?'Нажми чтобы выбрать время':'Tap to select time'}</div>
+    </div>
+    <button class="ob-btn" onclick="obNext()" style="margin-top:20px">${lang==='ru'?'Продолжить →':'Continue →'}</button>`,
+    save:()=>{S.user.wakeTime=document.getElementById('obWake')?.value||'05:30';}
   },
   {
     title:{ru:'Твои параметры',en:'Your parameters'},
