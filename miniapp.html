@@ -31,7 +31,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:radial-gradi
 #app{position:relative;z-index:1;height:100vh;display:flex;flex-direction:column}
 
 /* ONBOARDING */
-#ob{position:fixed;inset:0;z-index:1000;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;animation:fadeIn .4s ease}
+#ob{position:fixed;inset:0;z-index:1000;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:32px 24px;overflow-y:auto;animation:fadeIn .4s ease}
 .ob-logo{font-family:var(--font-h);font-size:28px;font-weight:800;margin-bottom:6px;letter-spacing:-.02em}
 .ob-logo span{color:var(--p2)}
 .ob-tagline{font-size:12px;color:var(--text3);margin-bottom:32px;text-align:center;letter-spacing:.04em}
@@ -1215,20 +1215,24 @@ function toggleHabit(id){addHabitCopy(id);}
 function rHealth(){
   const h=S.health;
   // SVG Radar chart
-  const _rCx=110,_rCy=110,_rMax=90;
+  const _rCx=120,_rCy=120,_rMax=90;
   const _rAngDeg=[-90,-30,30,90,150,210];
   const _rRad=deg=>deg*Math.PI/180;
   const _rPt=(v,deg)=>{const r=(v/10)*_rMax;return{x:_rCx+r*Math.cos(_rRad(deg)),y:_rCy+r*Math.sin(_rRad(deg))};};
   const _rPts=vals=>_rAngDeg.map((deg,i)=>_rPt(vals[i],deg));
   const _rStr=pts=>pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-  const _rVals=[h.sleep||0,h.focus||0,h.stress||0,h.energy||0,h.mood||0,Math.round((h.water||0)/8*10)];
+  // Sync water from plan habits automatically
+  const waterHabitsCount=S.dayPlan.filter(p=>p.done&&(p.id==='water'||p.id==='water2')).length;
+  if(waterHabitsCount>h.water){h.water=waterHabitsCount;sv('health_'+tk(),h);}
+  // mood is 1-5, scale to 0-10 for radar
+  const _rVals=[h.sleep||0,h.focus||0,h.stress||0,h.energy||0,(h.mood||0)*2,Math.round((h.water||0)/8*10)];
   const grids=[2,4,6,8,10].map(lv=>`<polygon points="${_rStr(_rPts([lv,lv,lv,lv,lv,lv]))}" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`).join('');
   const axes=_rAngDeg.map(deg=>{const ex=(_rCx+_rMax*Math.cos(_rRad(deg))).toFixed(1),ey=(_rCy+_rMax*Math.sin(_rRad(deg))).toFixed(1);return `<line x1="${_rCx}" y1="${_rCy}" x2="${ex}" y2="${ey}" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`;}).join('');
   const dataPts=_rStr(_rPts(_rVals));
-  const _rLbls=[{t:lang==='ru'?'Сон':'Sleep',deg:-90},{t:lang==='ru'?'Фокус':'Focus',deg:-30},{t:lang==='ru'?'Стресс':'Stress',deg:30},{t:lang==='ru'?'Энергия':'Energy',deg:90},{t:lang==='ru'?'Настроение':'Mood',deg:150},{t:lang==='ru'?'Вода':'Water',deg:210}];
-  const lbls=_rLbls.map(l=>{const lx=(_rCx+105*Math.cos(_rRad(l.deg))).toFixed(1),ly=(_rCy+105*Math.sin(_rRad(l.deg))).toFixed(1);return `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="rgba(255,255,255,0.45)" font-family="DM Sans,sans-serif">${l.t}</text>`;}).join('');
+  const _rLbls=[{t:lang==='ru'?'Сон':'Sleep',deg:-90},{t:lang==='ru'?'Фокус':'Focus',deg:-30},{t:lang==='ru'?'Стресс':'Stress',deg:30},{t:lang==='ru'?'Энергия':'Energy',deg:90},{t:lang==='ru'?'Настр.':'Mood',deg:150},{t:lang==='ru'?'Вода':'Water',deg:210}];
+  const lbls=_rLbls.map(l=>{const lx=(_rCx+108*Math.cos(_rRad(l.deg))).toFixed(1),ly=(_rCy+108*Math.sin(_rRad(l.deg))).toFixed(1);return `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="rgba(255,255,255,0.45)" font-family="DM Sans,sans-serif">${l.t}</text>`;}).join('');
   const scoreVal=Math.round(_rVals.reduce((a,b)=>a+b,0)/6*10);
-  const radarSVG=`<svg width="220" height="220" viewBox="0 0 220 220">${grids}${axes}<polygon points="${dataPts}" fill="rgba(108,99,255,0.25)" stroke="#6c63ff" stroke-width="2"/>${lbls}<text x="${_rCx}" y="${_rCy+5}" text-anchor="middle" font-size="22" font-weight="800" fill="rgba(255,255,255,0.9)" font-family="Syne,sans-serif">${scoreVal}%</text></svg>`;
+  const radarSVG=`<svg width="240" height="240" viewBox="0 0 240 240">${grids}${axes}<polygon points="${dataPts}" fill="rgba(108,99,255,0.25)" stroke="#6c63ff" stroke-width="2"/>${lbls}<text x="${_rCx}" y="${_rCy+5}" text-anchor="middle" font-size="22" font-weight="800" fill="rgba(255,255,255,0.9)" font-family="Syne,sans-serif">${scoreVal}%</text></svg>`;
 
   const metrics=[
     {key:'sleep',ico:'😴',lbl:t().sleep},
