@@ -28,7 +28,9 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-b);font-size:14px}
 body::before{content:'';position:fixed;inset:0;z-index:0;background:radial-gradient(ellipse 60% 40% at 15% 10%,rgba(108,99,255,0.07) 0%,transparent 60%),radial-gradient(ellipse 50% 30% at 85% 85%,rgba(0,212,170,0.05) 0%,transparent 60%);pointer-events:none}
-#app{position:relative;z-index:1;height:100vh;display:flex;flex-direction:column}
+#app{position:relative;z-index:1;height:100vh;display:flex;flex-direction:column;transition:filter 2s ease}
+/* Time-of-day warm overlay (night mode) */
+#app::after{content:'';position:fixed;inset:0;z-index:9998;pointer-events:none;background:transparent;transition:background 2s ease}
 
 /* ONBOARDING */
 #ob{position:fixed;inset:0;z-index:1000;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:32px 24px;overflow-y:auto;animation:fadeIn .4s ease}
@@ -375,9 +377,48 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:radial-gradi
 @keyframes breatheOut{from{transform:scale(1)}to{transform:scale(0.6)}}
 @keyframes breatheHold{0%,100%{transform:scale(1)}}
 .breath-circle{width:160px;height:160px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;margin:0 auto;position:relative;transition:all 0.5s ease}
+
+/* MODAL */
+#modal{position:fixed;inset:0;z-index:800;display:none;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);padding:0}
+#modal.open{display:flex;animation:fadeIn .2s ease}
+.modal-sheet{width:100%;max-height:85vh;background:var(--bg1);border-radius:24px 24px 0 0;border:1px solid var(--border2);border-bottom:none;display:flex;flex-direction:column;animation:slideUp .3s ease}
+.modal-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:12px auto 0}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;border-bottom:1px solid var(--border)}
+.modal-title{font-family:var(--font-h);font-size:17px;font-weight:700;color:var(--text)}
+.modal-close{width:30px;height:30px;border-radius:50%;background:var(--glass2);border:none;color:var(--text2);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font-b)}
+.modal-body{flex:1;overflow-y:auto;padding:16px 20px 32px;-webkit-overflow-scrolling:touch}
+.modal-section{margin-bottom:16px;padding:14px;background:var(--glass);border:1px solid var(--border);border-radius:var(--r)}
+.modal-section-ttl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:8px}
+.modal-section-body{font-size:13px;color:var(--text2);line-height:1.7}
+
+/* OFFLINE BANNER */
+#offlineBanner{display:none;position:fixed;top:0;left:0;right:0;z-index:2000;align-items:center;justify-content:center;gap:8px;padding:9px 16px;background:linear-gradient(90deg,rgba(245,166,35,0.95),rgba(255,107,107,0.9));color:#fff;font-size:12px;font-weight:600;font-family:var(--font-b);letter-spacing:.02em;backdrop-filter:blur(8px);animation:slideDown .3s ease}
+#offlineBanner.show{display:flex}
+@keyframes slideDown{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}
+/* Deep Work */
+@keyframes dwPulse{0%,100%{opacity:.6;transform:scale(1)}50%{opacity:1;transform:scale(1.04)}}
+@keyframes dwComplete{0%{transform:scale(1)}40%{transform:scale(1.12)}70%{transform:scale(.96)}100%{transform:scale(1)}}
+#deepWorkOverlay{display:none;position:fixed;inset:0;z-index:5500;background:rgba(8,8,16,0.97);backdrop-filter:blur(24px);flex-direction:column;align-items:center;justify-content:center}
+#deepWorkOverlay.dw-active{display:flex}
+#dwRing{animation:dwPulse 4s ease-in-out infinite}
+#dwRing.dw-paused{animation-play-state:paused;opacity:.5}
+/* Weekly Recap */
+@keyframes recapIn{from{opacity:0;transform:translateY(20px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes countUp{from{opacity:0;transform:scale(0.6)}to{opacity:1;transform:scale(1)}}
+.recap-block{animation:recapIn .45s ease both}
+.recap-block:nth-child(1){animation-delay:.05s}.recap-block:nth-child(2){animation-delay:.12s}
+.recap-block:nth-child(3){animation-delay:.19s}.recap-block:nth-child(4){animation-delay:.26s}
+.recap-block:nth-child(5){animation-delay:.33s}.recap-block:nth-child(6){animation-delay:.40s}
+.recap-num{animation:countUp .5s cubic-bezier(.34,1.56,.64,1) both;display:inline-block}
 </style>
 </head>
 <body>
+
+<!-- OFFLINE BANNER -->
+<div id="offlineBanner">
+  <span>📡</span>
+  <span id="offlineBannerText">Офлайн — данные сохранены локально</span>
+</div>
 
 <!-- ONBOARDING -->
 <div id="ob" style="display:none">
@@ -495,37 +536,37 @@ const T = {
 // ── HABIT LIBRARY ─────────────────────────────────────────────────────────────
 const HABIT_LIB = [
   // Morning
-  {id:'wake',ico:'🌅',name:{ru:'Подъём без телефона',en:'Wake up — no phone'},time:'5:30',cat:'Morning'},
-  {id:'water',ico:'🍋',name:{ru:'Вода с лимоном',en:'Water with lemon'},time:'5:35',cat:'Morning'},
-  {id:'meditate',ico:'🧘',name:{ru:'Медитация',en:'Meditation'},time:'5:45',cat:'Morning'},
-  {id:'affirm',ico:'💫',name:{ru:'Аффирмации',en:'Affirmations'},time:'6:00',cat:'Morning'},
-  {id:'journal_m',ico:'✍️',name:{ru:'Утренний журнал',en:'Morning journal'},time:'6:10',cat:'Morning'},
-  {id:'shower',ico:'🚿',name:{ru:'Холодный душ',en:'Cold shower'},time:'6:15',cat:'Morning'},
-  {id:'sun',ico:'☀️',name:{ru:'Солнечный свет',en:'Sunlight'},time:'6:20',cat:'Morning'},
+  {id:'wake',ico:'🌅',name:{ru:'Подъём без телефона',en:'Wake up — no phone'},time:'08:00',cat:'Morning'},
+  {id:'water',ico:'🍋',name:{ru:'Вода с лимоном',en:'Water with lemon'},time:'08:05',cat:'Morning'},
+  {id:'meditate',ico:'🧘',name:{ru:'Медитация',en:'Meditation'},time:'08:15',cat:'Morning'},
+  {id:'affirm',ico:'💫',name:{ru:'Аффирмации',en:'Affirmations'},time:'08:30',cat:'Morning'},
+  {id:'journal_m',ico:'✍️',name:{ru:'Утренний журнал',en:'Morning journal'},time:'08:40',cat:'Morning'},
+  {id:'shower',ico:'🚿',name:{ru:'Холодный душ',en:'Cold shower'},time:'08:45',cat:'Morning'},
+  {id:'sun',ico:'☀️',name:{ru:'Солнечный свет',en:'Sunlight'},time:'08:50',cat:'Morning'},
   // Sport
-  {id:'workout',ico:'💪',name:{ru:'Зарядка',en:'Morning workout'},time:'6:25',cat:'Sport'},
+  {id:'workout',ico:'💪',name:{ru:'Зарядка',en:'Morning workout'},time:'08:55',cat:'Sport'},
   {id:'gym',ico:'🏋️',name:{ru:'Зал',en:'Gym'},time:'18:00',cat:'Sport'},
-  {id:'run',ico:'🏃',name:{ru:'Бег',en:'Running'},time:'7:00',cat:'Sport'},
-  {id:'swim',ico:'🏊',name:{ru:'Плавание',en:'Swimming'},time:'7:00',cat:'Sport'},
-  {id:'yoga',ico:'🧘',name:{ru:'Йога',en:'Yoga'},time:'6:30',cat:'Sport'},
-  {id:'bike',ico:'🚴',name:{ru:'Велосипед',en:'Cycling'},time:'7:00',cat:'Sport'},
+  {id:'run',ico:'🏃',name:{ru:'Бег',en:'Running'},time:'09:30',cat:'Sport'},
+  {id:'swim',ico:'🏊',name:{ru:'Плавание',en:'Swimming'},time:'09:30',cat:'Sport'},
+  {id:'yoga',ico:'🧘',name:{ru:'Йога',en:'Yoga'},time:'09:00',cat:'Sport'},
+  {id:'bike',ico:'🚴',name:{ru:'Велосипед',en:'Cycling'},time:'09:30',cat:'Sport'},
   {id:'walk',ico:'🚶',name:{ru:'Прогулка',en:'Walk'},time:'12:30',cat:'Sport'},
-  {id:'stretch',ico:'🤸',name:{ru:'Растяжка',en:'Stretching'},time:'7:00',cat:'Sport'},
+  {id:'stretch',ico:'🤸',name:{ru:'Растяжка',en:'Stretching'},time:'09:30',cat:'Sport'},
   {id:'boxing',ico:'🥊',name:{ru:'Бокс',en:'Boxing'},time:'18:00',cat:'Sport'},
   // Nutrition
-  {id:'breakfast',ico:'🍳',name:{ru:'Завтрак',en:'Breakfast'},time:'7:00',cat:'Food'},
+  {id:'breakfast',ico:'🍳',name:{ru:'Завтрак',en:'Breakfast'},time:'09:30',cat:'Food'},
   {id:'lunch',ico:'🥗',name:{ru:'Обед',en:'Lunch'},time:'12:00',cat:'Food'},
   {id:'dinner',ico:'🥘',name:{ru:'Ужин',en:'Dinner'},time:'19:30',cat:'Food'},
   {id:'vitamins',ico:'💊',name:{ru:'Витамины',en:'Vitamins'},time:'8:00',cat:'Food'},
   {id:'water2',ico:'💧',name:{ru:'Норма воды',en:'Water intake'},time:'15:00',cat:'Food'},
   // Work
-  {id:'plan',ico:'🎯',name:{ru:'Планирование',en:'Planning'},time:'7:20',cat:'Work'},
+  {id:'plan',ico:'🎯',name:{ru:'Планирование',en:'Planning'},time:'09:50',cat:'Work'},
   {id:'deepwork',ico:'💼',name:{ru:'Глубокая работа',en:'Deep work'},time:'8:00',cat:'Work'},
   {id:'email',ico:'📧',name:{ru:'Email/сообщения',en:'Email/messages'},time:'10:00',cat:'Work'},
   {id:'network',ico:'🤝',name:{ru:'Нетворкинг',en:'Networking'},time:'11:00',cat:'Work'},
   // Learning
   {id:'read',ico:'📚',name:{ru:'Чтение книги',en:'Reading'},time:'12:30',cat:'Learning'},
-  {id:'ailearn',ico:'🤖',name:{ru:'Обучение AI',en:'AI learning'},time:'7:30',cat:'Learning'},
+  {id:'ailearn',ico:'🤖',name:{ru:'Обучение AI',en:'AI learning'},time:'10:00',cat:'Learning'},
   {id:'course',ico:'🎓',name:{ru:'Онлайн курс',en:'Online course'},time:'9:00',cat:'Learning'},
   {id:'podcast',ico:'🎧',name:{ru:'Подкаст',en:'Podcast'},time:'20:00',cat:'Learning'},
   {id:'lang',ico:'🗣️',name:{ru:'Изучение языка',en:'Language learning'},time:'8:00',cat:'Learning'},
@@ -546,29 +587,29 @@ const HABIT_LIB = [
   {id:'sleep_p',ico:'😴',name:{ru:'Сон',en:'Sleep'},time:'22:00',cat:'Evening'},
   {id:'gratitude',ico:'🙏',name:{ru:'Благодарность',en:'Gratitude'},time:'21:00',cat:'Evening'},
   // Health
-  {id:'stoic',ico:'⚡',name:{ru:'Стоицизм',en:'Stoicism'},time:'6:10',cat:'Mind'},
-  {id:'breath',ico:'🌬️',name:{ru:'Дыхательные упражнения',en:'Breathing'},time:'6:00',cat:'Mind'},
+  {id:'stoic',ico:'⚡',name:{ru:'Стоицизм',en:'Stoicism'},time:'08:40',cat:'Mind'},
+  {id:'breath',ico:'🌬️',name:{ru:'Дыхательные упражнения',en:'Breathing'},time:'08:30',cat:'Mind'},
   {id:'nofone',ico:'📵',name:{ru:'Без телефона',en:'No phone'},time:'21:00',cat:'Mind'},
   {id:'sauna',ico:'🧖',name:{ru:'Сауна/баня',en:'Sauna'},time:'18:00',cat:'Health'},
   {id:'massage',ico:'💆',name:{ru:'Массаж',en:'Massage'},time:'19:00',cat:'Health'},
-  {id:'protein',ico:'🥤',name:{ru:'Протеиновый коктейль',en:'Protein shake'},time:'6:30',cat:'Morning'},
-  {id:'herbal_tea',ico:'🌿',name:{ru:'Травяной чай',en:'Herbal tea'},time:'6:35',cat:'Morning'},
-  {id:'news_m',ico:'📰',name:{ru:'Чтение новостей',en:'Reading news'},time:'6:40',cat:'Morning'},
-  {id:'intention',ico:'🎯',name:{ru:'Намерение дня',en:'Daily intention'},time:'6:45',cat:'Morning'},
-  {id:'skincare_m',ico:'🧴',name:{ru:'Уход за кожей',en:'Skincare'},time:'6:50',cat:'Morning'},
-  {id:'floss',ico:'🦷',name:{ru:'Флосс',en:'Flossing'},time:'6:55',cat:'Morning'},
-  {id:'music_m',ico:'🎶',name:{ru:'Утренняя музыка',en:'Morning music'},time:'7:05',cat:'Morning'},
-  {id:'todo',ico:'📝',name:{ru:'To-do список',en:'To-do list'},time:'7:10',cat:'Morning'},
-  {id:'wim_hof',ico:'🌬️',name:{ru:'Дыхание Вима Хофа',en:'Wim Hof breathing'},time:'6:05',cat:'Morning'},
-  {id:'morning_run',ico:'🏃',name:{ru:'Утренняя пробежка',en:'Morning run'},time:'6:30',cat:'Morning'},
-  {id:'crossfit',ico:'🤸',name:{ru:'Кроссфит',en:'Crossfit'},time:'7:00',cat:'Sport'},
+  {id:'protein',ico:'🥤',name:{ru:'Протеиновый коктейль',en:'Protein shake'},time:'09:00',cat:'Morning'},
+  {id:'herbal_tea',ico:'🌿',name:{ru:'Травяной чай',en:'Herbal tea'},time:'09:05',cat:'Morning'},
+  {id:'news_m',ico:'📰',name:{ru:'Чтение новостей',en:'Reading news'},time:'09:10',cat:'Morning'},
+  {id:'intention',ico:'🎯',name:{ru:'Намерение дня',en:'Daily intention'},time:'09:15',cat:'Morning'},
+  {id:'skincare_m',ico:'🧴',name:{ru:'Уход за кожей',en:'Skincare'},time:'09:20',cat:'Morning'},
+  {id:'floss',ico:'🦷',name:{ru:'Флосс',en:'Flossing'},time:'09:25',cat:'Morning'},
+  {id:'music_m',ico:'🎶',name:{ru:'Утренняя музыка',en:'Morning music'},time:'09:35',cat:'Morning'},
+  {id:'todo',ico:'📝',name:{ru:'To-do список',en:'To-do list'},time:'09:40',cat:'Morning'},
+  {id:'wim_hof',ico:'🌬️',name:{ru:'Дыхание Вима Хофа',en:'Wim Hof breathing'},time:'08:35',cat:'Morning'},
+  {id:'morning_run',ico:'🏃',name:{ru:'Утренняя пробежка',en:'Morning run'},time:'09:00',cat:'Morning'},
+  {id:'crossfit',ico:'🤸',name:{ru:'Кроссфит',en:'Crossfit'},time:'09:30',cat:'Sport'},
   {id:'martial',ico:'🥋',name:{ru:'Единоборства',en:'Martial arts'},time:'18:00',cat:'Sport'},
   {id:'badminton',ico:'🏸',name:{ru:'Бадминтон',en:'Badminton'},time:'18:00',cat:'Sport'},
   {id:'basketball',ico:'⛹️',name:{ru:'Баскетбол',en:'Basketball'},time:'18:00',cat:'Sport'},
   {id:'football',ico:'⚽',name:{ru:'Футбол',en:'Football'},time:'18:00',cat:'Sport'},
   {id:'aqua',ico:'🏊',name:{ru:'Аквааэробика',en:'Aqua aerobics'},time:'9:00',cat:'Sport'},
   {id:'climbing',ico:'🧗',name:{ru:'Скалолазание',en:'Rock climbing'},time:'18:00',cat:'Sport'},
-  {id:'surf',ico:'🏄',name:{ru:'Сёрфинг',en:'Surfing'},time:'7:00',cat:'Sport'},
+  {id:'surf',ico:'🏄',name:{ru:'Сёрфинг',en:'Surfing'},time:'09:30',cat:'Sport'},
   {id:'tennis',ico:'🎾',name:{ru:'Теннис',en:'Tennis'},time:'18:00',cat:'Sport'},
   {id:'wrestling',ico:'🤼',name:{ru:'Борьба',en:'Wrestling'},time:'18:00',cat:'Sport'},
   {id:'smoothie',ico:'🥤',name:{ru:'Смузи',en:'Smoothie'},time:'8:00',cat:'Food'},
@@ -577,7 +618,7 @@ const HABIT_LIB = [
   {id:'veggies',ico:'🥦',name:{ru:'Овощи на обед',en:'Vegetables at lunch'},time:'12:00',cat:'Food'},
   {id:'fish_d',ico:'🐟',name:{ru:'Рыба на ужин',en:'Fish for dinner'},time:'19:30',cat:'Food'},
   {id:'berries',ico:'🫐',name:{ru:'Ягоды',en:'Berries'},time:'10:00',cat:'Food'},
-  {id:'eggs_b',ico:'🥚',name:{ru:'Яйца на завтрак',en:'Eggs for breakfast'},time:'7:00',cat:'Food'},
+  {id:'eggs_b',ico:'🥚',name:{ru:'Яйца на завтрак',en:'Eggs for breakfast'},time:'09:30',cat:'Food'},
   {id:'vit_c',ico:'🍊',name:{ru:'Витамин С',en:'Vitamin C'},time:'8:00',cat:'Food'},
   {id:'green_j',ico:'🧃',name:{ru:'Зелёный сок',en:'Green juice'},time:'8:00',cat:'Food'},
   {id:'probio',ico:'🫙',name:{ru:'Пробиотики',en:'Probiotics'},time:'8:00',cat:'Food'},
@@ -635,10 +676,10 @@ const HABIT_LIB = [
   {id:'chess',ico:'♟️',name:{ru:'Шахматы',en:'Chess'},time:'20:00',cat:'Mind'},
   {id:'neurobics',ico:'🧠',name:{ru:'Нейробика',en:'Neurobics'},time:'9:00',cat:'Mind'},
   {id:'news_anal',ico:'📰',name:{ru:'Аналитика новостей',en:'News analysis'},time:'13:00',cat:'Mind'},
-  {id:'visualize',ico:'🔮',name:{ru:'Визуализация будущего',en:'Future visualization'},time:'6:00',cat:'Mind'},
-  {id:'mantras',ico:'🪬',name:{ru:'Мантры',en:'Mantras'},time:'6:00',cat:'Mind'},
-  {id:'prayer',ico:'📿',name:{ru:'Молитва',en:'Prayer'},time:'6:00',cat:'Mind'},
-  {id:'mindful',ico:'🌀',name:{ru:'Осознанность',en:'Mindfulness'},time:'6:00',cat:'Mind'},
+  {id:'visualize',ico:'🔮',name:{ru:'Визуализация будущего',en:'Future visualization'},time:'08:30',cat:'Mind'},
+  {id:'mantras',ico:'🪬',name:{ru:'Мантры',en:'Mantras'},time:'08:30',cat:'Mind'},
+  {id:'prayer',ico:'📿',name:{ru:'Молитва',en:'Prayer'},time:'08:30',cat:'Mind'},
+  {id:'mindful',ico:'🌀',name:{ru:'Осознанность',en:'Mindfulness'},time:'08:30',cat:'Mind'},
   {id:'free_write',ico:'💭',name:{ru:'Свободное письмо',en:'Free writing'},time:'21:00',cat:'Mind'},
   {id:'goal_set',ico:'🎯',name:{ru:'Постановка целей',en:'Goal setting'},time:'21:00',cat:'Mind'},
   {id:'massage_h',ico:'💆',name:{ru:'Массаж',en:'Massage'},time:'19:00',cat:'Health'},
@@ -658,8 +699,8 @@ const NO_FIXED_TIME_IDS=new Set(['read','guitar','piano','draw','write','music',
 HABIT_LIB.forEach(h=>{h.hasTime=!NO_FIXED_TIME_IDS.has(h.id);});
 
 function getTimeOffset(){
-  const base='5:30';
-  const wake=S.user.wakeTime||'5:30';
+  const base='08:00';
+  const wake=S.user.wakeTime||'08:00';
   const[bh,bm]=base.split(':').map(Number);
   const[wh,wm]=wake.split(':').map(Number);
   return(wh*60+wm)-(bh*60+bm);
@@ -835,7 +876,7 @@ const t=()=>T[lang];
 let S={
   tab:'home',
   lang,
-  user: ld('user',{name:'',goal:'',wakeTime:'5:30',weight:89,targetWeight:80,height:178,activityLevel:'medium',subjects:['ai'],allergies:[],preferredCuisine:''}),
+  user: (()=>{const _u=ld('user',{name:'',goal:'',wakeTime:'08:00',weight:89,targetWeight:80,height:178,activityLevel:'medium',subjects:['ai'],allergies:[],preferredCuisine:''});if(_u.wakeTime&&parseInt(_u.wakeTime)<7){_u.wakeTime='08:00';}return _u;})(),
   dayPlan: ld('day_plan_'+tk(),[]),
   myHabits: ld('my_habits',[]),
   meals: ld('meals_'+tk(),[]),
@@ -890,10 +931,32 @@ if(!S.dayPlan.length && S.myHabits.length) {
 }
 
 function updStreak(){
-  const today=tk(),yest=new Date(Date.now()-86400000).toISOString().slice(0,10);
+  const today=tk();
+  const yest=new Date(Date.now()-86400000).toISOString().slice(0,10);
   if(S.streak.last===today)return;
-  S.streak.count=S.streak.last===yest?S.streak.count+1:1;
-  S.streak.last=today;sv('streak',S.streak);
+  // Gate: only keep streak alive if yesterday had ≥50% completion
+  const yestPlan=ld('day_plan_'+yest,[]);
+  const yestPct=yestPlan.length
+    ?Math.round(yestPlan.filter(x=>x.done).length/yestPlan.length*100)
+    :0;
+  if(S.streak.last===yest&&yestPct>=50){
+    S.streak.count++;
+  } else {
+    // Gap or yesterday was below 50% — reset, don't count current day yet
+    S.streak.count=0;
+  }
+  S.streak.last=today;
+  sv('streak',S.streak);
+}
+
+// Call after any habit toggle to re-evaluate streak live
+function refreshStreak(){
+  const pct=getPct();
+  // If today reaches ≥50% for the first time, grant +1 if last was yesterday
+  if(pct>=50&&S.streak.last===tk()){
+    // streak already accounted for today — just refresh display
+  }
+  document.getElementById('streakNum').textContent=S.streak.count;
 }
 
 function getPct(){
@@ -1091,18 +1154,67 @@ function rHome(){
   const _patternsH=ld('patterns',[]);
   const _topPH=_patternsH.length?`<div class="ai-bubble" style="border-left:3px solid var(--p);background:rgba(108,99,255,0.07);font-size:12px">${_patternsH[0].ico} ${_patternsH[0].text[lang]}</div>`:'';
 
+  const lvl=getLevel(S.xp);
   return `
   <div class="hero">
     <div class="hero-greet">${greeting}</div>
     <div class="hero-name">${S.user.name?S.user.name:(lang==='ru'?'Добро пожаловать':'Welcome')} <em>✦</em></div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;background:rgba(255,107,107,0.12);border:1px solid rgba(255,107,107,0.2)">
+        <span style="font-size:14px">🔥</span>
+        <span style="font-size:13px;font-weight:700;color:var(--coral)">${S.streak.count}</span>
+        <span style="font-size:11px;color:var(--coral);opacity:.8">${lang==='ru'?'дней':'days'}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;background:rgba(245,166,35,0.12);border:1px solid rgba(245,166,35,0.2)">
+        <span style="font-size:13px">${lvl.ico}</span>
+        <span style="font-size:13px;font-weight:700;color:var(--amber)">${S.xp} XP</span>
+      </div>
+      ${(()=>{
+        const _wc=ld('weather_cache',null);
+        if(!_wc)return '';
+        return `<div style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;background:rgba(74,158,255,0.1);border:1px solid rgba(74,158,255,0.2)">
+          <span style="font-size:14px">${_wc.ico}</span>
+          <span style="font-size:13px;font-weight:700;color:var(--blue)">${Math.round(_wc.temp)}°</span>
+        </div>`;
+      })()}
+    </div>
     <div style="font-size:11px;color:var(--text3);margin-bottom:10px;font-weight:500">${lang==='ru'?'Уровень энергии сегодня':'Energy level today'}</div>
     <div class="energy-row">${energyLevels.map((e,i)=>`<div class="energy-btn ${S.user.energy===i?'on':''}" onclick="setEnergy(${i})"><span class="energy-ico">${e.ico}</span>${e.lbl}</div>`).join('')}</div>
     ${_kcalStatus}
     ${morningBanner||`<div class="ai-bubble" style="animation:fadeIn .5s ease">${insight}${_q.author?`<span style="display:block;margin-top:6px;font-size:10px;color:var(--text3);font-style:normal;font-weight:600">— ${_q.author}</span>`:''}</div>`}
   </div>
 
+  ${(()=>{
+    const _wc=ld('weather_cache',null);
+    if(!_wc||_wc.code<51)return '';
+    const _isRain=_wc.code>=51&&_wc.code<=82;
+    const _isStorm=_wc.code>=95;
+    const _hasOutdoor=S.dayPlan.some(p=>['run','walk','cycling','outdoor'].includes(p.id)&&!p.done);
+    if(!_hasOutdoor)return '';
+    const _isRu=lang==='ru';
+    const _ico=_isStorm?'⛈️':'🌧️';
+    const _desc=_isStorm?(_isRu?'Гроза сегодня':'Thunderstorm today'):(_isRu?'Дождь сегодня':'Rain today');
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:rgba(74,158,255,0.08);border:1px solid rgba(74,158,255,0.25);border-radius:var(--r);margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="font-size:20px">${_ico}</span><div>
+        <div style="font-size:13px;font-weight:600;color:var(--blue)">${_desc}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${_isRu?'Заменить пробежку на домашнюю?':'Replace run with home workout?'}</div>
+      </div></div>
+      <button onclick="replaceRunWithWorkout()" style="background:var(--blue);border:none;border-radius:10px;padding:8px 12px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-b);white-space:nowrap">${_isRu?'Заменить':'Swap'}</button>
+    </div>`;
+  })()}
+  ${hour<14?`<button onclick="showAIBriefing()" style="width:100%;margin-bottom:10px;padding:13px 16px;background:linear-gradient(135deg,var(--p3),rgba(0,212,170,0.08));border:1px solid rgba(108,99,255,0.25);border-radius:var(--r);color:var(--p2);font-size:13px;font-weight:600;font-family:var(--font-b);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:.01em"><span style="font-size:16px">☀️</span>${lang==='ru'?'AI брифинг на день':'AI Morning Briefing'}<span style="font-size:11px;opacity:.6;margin-left:4px">✦</span></button>`:''}
+  ${(()=>{
+    const _near=ld('gym_nearby',false);
+    if(!_near||!S.user.gymLat)return '';
+    const _gymName=S.user.gymName||(lang==='ru'?'Зал':'Gym');
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:linear-gradient(135deg,rgba(0,212,170,0.1),rgba(108,99,255,0.08));border:1px solid rgba(0,212,170,0.3);border-radius:var(--r);margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="font-size:20px">📍</span><div><div style="font-size:13px;font-weight:600;color:var(--teal)">${lang==='ru'?'Ты в '+_gymName+'!':'You\'re at '+_gymName+'!'}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${lang==='ru'?'Отметить тренировку?':'Mark workout as done?'}</div></div></div>
+      <button onclick="autoMarkGymHabit()" style="background:var(--teal);border:none;border-radius:10px;padding:8px 14px;color:#000;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font-b)">✓ ${lang==='ru'?'Да':'Yes'}</button>
+    </div>`;
+  })()}
   ${_bfReminder}${_hSuggs}${_topPH}${_learningCard}
   ${focusCard}
+  <button onclick="startDeepWork(25)" style="width:100%;margin-bottom:4px;padding:12px 16px;background:linear-gradient(135deg,rgba(108,99,255,0.15),rgba(0,212,170,0.08));border:1px solid rgba(108,99,255,0.3);border-radius:var(--r);color:var(--p2);font-size:13px;font-weight:600;font-family:var(--font-b);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">🎯 ${lang==='ru'?'Deep Work — 25 мин':'Deep Work — 25 min'}</button>
 
   <div class="stitle">${t().today_plan}</div>
   ${planItems}${emptyPlan}
@@ -1122,6 +1234,11 @@ function togglePlan(i){
     addXP(10);
     const allDone=S.dayPlan.every(x=>x.done)&&S.customTasks.every(x=>x.done);
     if(allDone)setTimeout(()=>{addXP(50);toast('🏆 '+(lang==='ru'?'Все задачи выполнены! +50 XP':'All tasks done! +50 XP'));},300);
+    // Award streak when crossing 50% threshold during the day
+    if(getPct()>=50&&S.streak.count===0){
+      S.streak.count=1;S.streak.last=tk();sv('streak',S.streak);
+      toast('🔥 '+(lang==='ru'?'Стрик начат! Продолжай завтра':'Streak started! Keep it up tomorrow'));
+    }
   }
   render();
   setTimeout(()=>{const _el=document.querySelector('[data-habit-id="habit-'+i+'"]');if(_el&&S.dayPlan[i].done)_el.classList.add('habit-pulse');},0);
@@ -1196,9 +1313,18 @@ function addHabitCopy(id){
   const h=HABIT_LIB.find(x=>x.id===id);if(!h)return;
   const copies=S.dayPlan.filter(p=>p.id===id).length;
   if(copies>=10){toast(lang==='ru'?'Максимум 10 копий':'Max 10 copies');return;}
+  // Auto-time only for water habits
+  let autoTime=null;
+  if(id==='water'||id==='water2'){
+    const wakeMin=timeToMinutes(S.user.wakeTime||'08:00');
+    const baseMin=wakeMin+30+(copies*90);
+    const autoH=Math.floor(baseMin/60)%24;
+    const autoM=baseMin%60;
+    autoTime=String(autoH).padStart(2,'0')+':'+String(autoM).padStart(2,'0');
+  }
   S.myHabits.push(id);
-  S.dayPlan.push({id,done:false,copyIndex:copies});
-  S.dayPlan.sort((a,b)=>{const ha=HABIT_LIB.find(x=>x.id===a.id),hb=HABIT_LIB.find(x=>x.id===b.id);return timeToMinutes(ha?.time||'23:59')-timeToMinutes(hb?.time||'23:59');});
+  S.dayPlan.push({id,done:false,copyIndex:copies,...(autoTime?{customTime:autoTime}:{})});
+  S.dayPlan.sort((a,b)=>{const ta=a.customTime||(HABIT_LIB.find(x=>x.id===a.id)?.time)||'23:59';const tb=b.customTime||(HABIT_LIB.find(x=>x.id===b.id)?.time)||'23:59';return timeToMinutes(ta)-timeToMinutes(tb);});
   sv('my_habits',S.myHabits);sv('day_plan_'+tk(),S.dayPlan);
   toast('✓ '+(lang==='ru'?'Добавлено':'Added'));render();
 }
@@ -1247,6 +1373,39 @@ function rHealth(){
   return `
   <div style="display:flex;justify-content:center;margin-bottom:6px">${radarSVG}</div>
 
+  ${(()=>{
+    const _isRu=lang==='ru';
+    const _wake=S.user.wakeTime||'06:30';
+    const _calcBed=(ws,n)=>{
+      const [hh,mm]=(ws||'06:30').split(':').map(Number);
+      let bm=(hh*60+mm)-(n*90+14);if(bm<0)bm+=1440;
+      return String(Math.floor(bm/60)%24).padStart(2,'0')+':'+String(bm%60).padStart(2,'0');
+    };
+    const _opts=[
+      {n:6,dur:'9ч / 9h',q:_isRu?'Идеально':'Optimal',col:'var(--teal)'},
+      {n:5,dur:'7.5ч / 7.5h',q:_isRu?'Хорошо':'Good',col:'#30d158'},
+      {n:4,dur:'6ч / 6h',q:_isRu?'Нормально':'Fair',col:'var(--amber)'},
+      {n:3,dur:'4.5ч / 4.5h',q:_isRu?'Мало':'Short',col:'var(--coral)'},
+    ];
+    const _cards=_opts.map(o=>{
+      const bed=_calcBed(_wake,o.n);
+      return `<div style="flex:1;min-width:0;background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--r);padding:10px 6px;text-align:center;cursor:pointer;transition:border-color .2s" onclick="setSleepBedtime('${bed}')">
+        <div style="font-size:17px;font-weight:800;font-family:var(--font-h);color:${o.col}">${bed}</div>
+        <div style="font-size:9px;color:var(--text3);margin-top:3px">${o.n} ${_isRu?'цикл.':'cyc.'}</div>
+        <div style="font-size:9px;font-weight:700;color:${o.col};margin-top:3px;text-transform:uppercase;letter-spacing:.04em">${o.q}</div>
+      </div>`;
+    }).join('');
+    return `<div class="stitle">${_isRu?'Цикл сна':'Sleep Cycles'} 🌙</div>
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <span style="font-size:12px;color:var(--text2);flex:1">${_isRu?'Встаю в:':'Wake up at:'}</span>
+        <input type="time" id="sleepWakeInp" value="${_wake}" oninput="updateSleepCalc(this.value)" style="background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:6px 10px;color:var(--text2);font-size:14px;font-weight:700;font-family:var(--font-h);width:116px;-webkit-appearance:none"/>
+      </div>
+      <div style="display:flex;gap:5px;margin-bottom:10px" id="sleepCycleCards">${_cards}</div>
+      <div style="font-size:10px;color:var(--text3);text-align:center">+ 14 ${_isRu?'мин на засыпание · цикл = 90 мин':'min to fall asleep · cycle = 90 min'}</div>
+    </div>`;
+  })()}
+
   <div class="health-grid">${metrics.map(m=>{
     const v=h[m.key]||0;
     const col=v>=7?'#30d158':v>=4?'#f5a623':'#ff6b6b';
@@ -1285,6 +1444,85 @@ function rHealth(){
     `Sleep ${h.sleep||'?'}/10 · Energy ${h.energy||'?'}/10 · Stress ${h.stress||'?'}/10${h.energy<5?' · Move heavy tasks to later':''}`}</div>`:''}
     <button class="btn-main" onclick="getHealthInsight()">${t().gen_insight}</button>
   </div>
+
+  ${(()=>{
+    // ── 7-day health sparklines ──────────────────────────────────────────────
+    const _dShort=lang==='ru'?['Пн','Вт','Ср','Чт','Пт','Сб','Вс']:['Mo','Tu','We','Th','Fr','Sa','Su'];
+    const _h7=[];
+    for(let _i=6;_i>=0;_i--){
+      const _d=new Date(Date.now()-_i*86400000);
+      const _hk=_d.toISOString().slice(0,10);
+      const _hd=ld('health_'+_hk,{});
+      _h7.push({sleep:_hd.sleep||0,energy:_hd.energy||0,day:_dShort[(_d.getDay()+6)%7],today:_i===0});
+    }
+    if(!_h7.some(d=>d.sleep||d.energy))return '';
+    const _W=280,_H=52,_P=6;
+    const _mkPts=arr=>arr.map((v,i)=>({
+      x:(_P+i*(_W-_P*2)/6).toFixed(1),
+      y:(_H-_P-(v/10)*(_H-_P*2)).toFixed(1)
+    }));
+    const _avg=arr=>{const f=arr.filter(v=>v>0);return f.length?(Math.round(f.reduce((s,v)=>s+v,0)/f.length*10)/10):0;};
+    const _chart=(arr,color,gid)=>{
+      const pts=_mkPts(arr);
+      const poly=pts.map(p=>p.x+','+p.y).join(' ');
+      const area='M'+pts.map(p=>p.x+','+p.y).join(' L')+` L${pts[6].x},${_H} L${pts[0].x},${_H} Z`;
+      const avg=_avg(arr);
+      return `<svg viewBox="0 0 ${_W} ${_H}" width="100%" height="${_H}" style="overflow:visible;display:block">
+        <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${color}" stop-opacity=".22"/>
+          <stop offset="100%" stop-color="${color}" stop-opacity=".01"/>
+        </linearGradient></defs>
+        <path d="${area}" fill="url(#${gid})"/>
+        <polyline points="${poly}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        ${pts.map((p,i)=>arr[i]>0?`<circle cx="${p.x}" cy="${p.y}" r="3" fill="var(--bg1)" stroke="${color}" stroke-width="1.5"/>`:'').join('')}
+      </svg>`;
+    };
+    const _dayRow=`<div style="display:flex;margin-top:3px">${_h7.map(d=>`<div style="flex:1;text-align:center;font-size:9px;color:${d.today?'var(--p2)':'var(--text3)'};font-weight:${d.today?700:400}">${d.day}</div>`).join('')}</div>`;
+    const _row=(label,color,avg)=>`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+      <span style="font-size:11px;font-weight:600;color:var(--text2)">${label}</span>
+      <span style="font-size:12px;font-weight:700;color:${color}">${avg>0?avg+'/10':'—'}</span>
+    </div>`;
+    const _sl=_h7.map(d=>d.sleep),_en=_h7.map(d=>d.energy);
+    return `<div class="stitle">${lang==='ru'?'Тренды за 7 дней':'7-Day Trends'} 📈</div>
+    <div class="card" style="padding-bottom:10px">
+      ${_row(lang==='ru'?'Сон':'Sleep','#00d4aa',_avg(_sl))}
+      ${_chart(_sl,'#00d4aa','spSl')}
+      ${_dayRow}
+      <div style="margin-top:14px"></div>
+      ${_row(lang==='ru'?'Энергия':'Energy','#f5a623',_avg(_en))}
+      ${_chart(_en,'#f5a623','spEn')}
+      ${_dayRow}
+    </div>`;
+  })()}
+
+  ${(()=>{
+    const _steps=ld('steps_'+tk(),0);
+    const _kcalStep=Math.round(_steps*0.04);
+    const _kmStep=(_steps*0.0008).toFixed(2);
+    const _hasMotion='DeviceMotionEvent' in window;
+    const _goalSteps=8000;
+    const _stepActiveNow=!!_stepActive;
+    const _stepPct=Math.min(100,Math.round(_steps/_goalSteps*100));
+    const _isRu=lang==='ru';
+    return `<div class="stitle">${_isRu?'Шагомер':'Pedometer'} 👟</div>
+    <div class="card" style="text-align:center">
+      <div style="font-size:52px;font-weight:800;font-family:var(--font-h);color:var(--p2);line-height:1;margin-bottom:4px" id="stepCount">${_steps.toLocaleString()}</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">${_isRu?'шагов сегодня':'steps today'} / ${_goalSteps.toLocaleString()}</div>
+      <div style="height:4px;background:var(--glass2);border-radius:4px;overflow:hidden;margin:0 16px 14px">
+        <div style="height:100%;width:${_stepPct}%;background:linear-gradient(90deg,var(--p),var(--teal));border-radius:4px;transition:width .4s"></div>
+      </div>
+      <div style="display:flex;justify-content:center;gap:28px;margin-bottom:16px">
+        <div><div style="font-size:16px;font-weight:700;color:var(--teal)" id="stepKcal">${_kcalStep}</div><div style="font-size:10px;color:var(--text3);margin-top:2px">kcal</div></div>
+        <div style="width:1px;background:var(--border)"></div>
+        <div><div style="font-size:16px;font-weight:700;color:var(--amber)" id="stepKm">${_kmStep}</div><div style="font-size:10px;color:var(--text3);margin-top:2px">km</div></div>
+      </div>
+      ${_hasMotion
+        ?`<button class="btn-main" onclick="togglePedometer()" style="background:${_stepActiveNow?'rgba(255,107,107,0.2)':'var(--p)'};border:${_stepActiveNow?'1px solid var(--coral)':'none'};color:${_stepActiveNow?'var(--coral)':'#fff'};min-width:160px">${_stepActiveNow?(_isRu?'⏹ Остановить':'⏹ Stop'):(_isRu?'▶ Запустить':'▶ Start')}</button>
+        ${_stepActiveNow?`<div style="font-size:11px;color:var(--teal);margin-top:8px;animation:habitPulse 1.5s ease infinite">${_isRu?'● Считаю шаги…':'● Counting steps…'}</div>`:''}`
+        :`<div style="font-size:12px;color:var(--text3);padding:8px;background:var(--glass);border-radius:var(--r-sm)">${_isRu?'DeviceMotion не поддерживается в этом браузере':'DeviceMotion not supported in this browser'}</div>`
+      }
+    </div>`;
+  })()}
 
   ${(()=>{
     const todayMeals=ld('meals_'+tk(),[]);
@@ -1417,8 +1655,14 @@ function breathTick(){
 function rNutrition(){
   const nutGoal=S.user.nutGoal||'lose';
   const goal=S.user.targetWeight&&S.user.targetWeight<S.user.weight?'lose':'gain';
-  const bmr=Math.round(10*S.user.weight+6.25*S.user.height-5*30+(goal==='lose'?5:-161));
-  const kcalGoal=Math.round(bmr*(S.user.activityLevel==='low'?1.375:S.user.activityLevel==='medium'?1.55:1.725));
+  // Mifflin-St Jeor (men): 10w + 6.25h - 5a + 5
+  const _age=S.user.age||30;
+  const _actMult=S.user.activityLevel==='low'?1.375:S.user.activityLevel==='high'?1.725:1.55;
+  const _msj=Math.round(10*(S.user.weight||89)+6.25*(S.user.height||178)-5*_age+5);
+  const _tdee=Math.round(_msj*_actMult);
+  const _kcalTarget=nutGoal==='lose'?_tdee-500:nutGoal==='gain'?_tdee+300:_tdee;
+  const bmr=_msj;
+  const kcalGoal=_kcalTarget;
   const total=S.meals.reduce((s,m)=>s+m.kcal,0);
   const pct=Math.min(100,Math.round(total/kcalGoal*100)),over=total>kcalGoal;
   const prot=S.meals.reduce((s,m)=>s+(m.p||0),0),carb=S.meals.reduce((s,m)=>s+(m.c||0),0),fat=S.meals.reduce((s,m)=>s+(m.f||0),0);
@@ -1441,6 +1685,25 @@ function rNutrition(){
       <button onclick="setNutGoal('lose')" style="flex:1;padding:10px 6px;border-radius:var(--r);border:1.5px solid ${nutGoal==='lose'?'var(--teal)':'var(--border)'};background:${nutGoal==='lose'?'var(--teal2)':'var(--glass)'};color:${nutGoal==='lose'?'var(--teal)':'var(--text3)'};font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-b)">🔥 ${lang==='ru'?'Похудеть':'Lose weight'}</button>
       <button onclick="setNutGoal('maintain')" style="flex:1;padding:10px 6px;border-radius:var(--r);border:1.5px solid ${nutGoal==='maintain'?'var(--p)':'var(--border)'};background:${nutGoal==='maintain'?'var(--p3)':'var(--glass)'};color:${nutGoal==='maintain'?'var(--p2)':'var(--text3)'};font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-b)">⚖️ ${lang==='ru'?'Держать вес':'Maintain'}</button>
       <button onclick="setNutGoal('gain')" style="flex:1;padding:10px 6px;border-radius:var(--r);border:1.5px solid ${nutGoal==='gain'?'var(--amber)':'var(--border)'};background:${nutGoal==='gain'?'var(--amber2)':'var(--glass)'};color:${nutGoal==='gain'?'var(--amber)':'var(--text3)'};font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-b)">💪 ${lang==='ru'?'Набрать массу':'Gain muscle'}</button>
+    </div>
+    <div style="display:flex;gap:8px;align-items:stretch;margin-bottom:14px">
+      <div style="flex:1;background:var(--glass);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px">
+        <div style="font-size:10px;color:var(--text3);font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px">TDEE</div>
+        <div style="font-size:22px;font-weight:700;color:var(--text);font-family:var(--font-h)">${_tdee}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">${lang==='ru'?'ккал/день (расход)':'kcal/day (burned)'}</div>
+      </div>
+      <div style="width:1px;background:var(--border);flex-shrink:0"></div>
+      <div style="flex:1;background:${nutGoal==='lose'?'var(--teal2)':nutGoal==='gain'?'var(--amber2)':'var(--glass)'};border:1px solid ${nutGoal==='lose'?'rgba(0,212,170,0.25)':nutGoal==='gain'?'rgba(245,166,35,0.25)':'var(--border)'};border-radius:var(--r);padding:12px 14px">
+        <div style="font-size:10px;color:var(--text3);font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px">${lang==='ru'?'ЦЕЛЬ':'TARGET'}</div>
+        <div style="font-size:22px;font-weight:700;color:${nutGoal==='lose'?'var(--teal)':nutGoal==='gain'?'var(--amber)':'var(--p2)'};font-family:var(--font-h)">${_kcalTarget}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">${nutGoal==='lose'?`TDEE − 500 ${lang==='ru'?'ккал':'kcal'}`:nutGoal==='gain'?`TDEE + 300 ${lang==='ru'?'ккал':'kcal'}`:lang==='ru'?'поддержание':'maintenance'}</div>
+      </div>
+    </div>
+    <div style="font-size:10px;color:var(--text3);margin:-8px 0 12px;line-height:1.5">
+      ${lang==='ru'
+        ?`Mifflin-St Jeor · ${S.user.weight||89}кг · ${S.user.height||178}см · ${_age}л · ${S.user.activityLevel==='low'?'низкая':S.user.activityLevel==='high'?'высокая':'средняя'} активность`
+        :`Mifflin-St Jeor · ${S.user.weight||89}kg · ${S.user.height||178}cm · age ${_age} · ${S.user.activityLevel||'medium'} activity`}
+      <span onclick="tab('settings')" style="color:var(--p2);cursor:pointer;margin-left:4px">${lang==='ru'?'Изменить →':'Edit →'}</span>
     </div>
     <div class="stitle" style="margin-top:0">${t().dietary}</div>
     <div class="tag-row" style="margin-bottom:8px">${[
@@ -2280,7 +2543,6 @@ function rJournal(){
     {id:'insights',lbl:t().insights},
     {id:'ideas',lbl:t().ideas},
     {id:'quotes',lbl:t().quotes},
-    {id:'mindmap',lbl:'🗺️ Mind Map'}
   ];
   const tabHtml=allTabs.map(tb=>`<button class="note-tag ${S.noteTab===tb.id?'on':''}" onclick="setNoteTab('${tb.id}')">${tb.lbl}</button>`).join('');
 
@@ -2308,28 +2570,6 @@ function rJournal(){
     <button class="btn-main" style="margin-top:4px" onclick="saveAllJournal()">${t().save_all}</button>`;
   }
 
-  if(S.noteTab==='mindmap'){
-    const mm=ld('mindmap_data',{center:S.user.goal||(lang==='ru'?'Моя цель':'My Goal'),nodes:[{id:1,text:lang==='ru'?'Ветка 1':'Branch 1',color:'#6c63ff'},{id:2,text:lang==='ru'?'Ветка 2':'Branch 2',color:'#00d4aa'}]});
-    const colors=['#6c63ff','#00d4aa','#f5a623','#ff6b6b','#4a9eff'];
-    const n=mm.nodes.length;const angleStep=n>0?(2*Math.PI/n):0;
-    const cx=140,cy=140,radPx=90;
-    const nodesSVG=mm.nodes.map((nd,i)=>{const a=i*angleStep-Math.PI/2;const nx=cx+radPx*Math.cos(a),ny=cy+radPx*Math.sin(a);return `<line x1="${cx}" y1="${cy}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="${nd.color||'#6c63ff'}" stroke-width="2" opacity=".5"/><circle cx="${nx.toFixed(1)}" cy="${ny.toFixed(1)}" r="28" fill="${nd.color||'#6c63ff'}22" stroke="${nd.color||'#6c63ff'}" stroke-width="1.5"/><text x="${nx.toFixed(1)}" y="${(ny+4).toFixed(1)}" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.8)" font-family="DM Sans,sans-serif">${escH(nd.text.slice(0,10))}</text>`;}).join('');
-    const nodesEdit=mm.nodes.map((nd,i)=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><div style="display:flex;gap:3px">${colors.map(c=>`<div onclick="mmSetColor(${i},'${c}')" style="width:14px;height:14px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${nd.color===c?'#fff':'transparent'}"></div>`).join('')}</div><input value="${escH(nd.text)}" oninput="mmEditNode(${i},this.value)" style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--text2)"/><button onclick="mmDelNode(${i})" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer">×</button></div>`).join('');
-    return `<div class="tag-row">${tabHtml}</div>
-    <svg width="280" height="280" viewBox="0 0 280 280" style="display:block;margin:0 auto 12px;background:var(--bg2);border-radius:var(--r)">
-      ${nodesSVG}
-      <circle cx="${cx}" cy="${cy}" r="36" fill="${colors[0]}33" stroke="${colors[0]}" stroke-width="2"/>
-      <text x="${cx}" y="${(cy-6)}" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.6)" font-family="DM Sans,sans-serif">${lang==='ru'?'Центр':'Center'}</text>
-      <text x="${cx}" y="${(cy+6)}" text-anchor="middle" font-size="9" font-weight="700" fill="rgba(255,255,255,0.9)" font-family="Syne,sans-serif">${escH(mm.center.slice(0,12))}</text>
-    </svg>
-    <div class="card">
-      <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">${lang==='ru'?'Центральная тема':'Central topic'}</div>
-      <input value="${escH(mm.center)}" oninput="mmEditCenter(this.value)" style="width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:8px 10px;font-size:13px;color:var(--text2);box-sizing:border-box;margin-bottom:12px"/>
-      <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">${lang==='ru'?'Ветки':'Branches'} (${n}/6)</div>
-      ${nodesEdit}
-      ${n<6?`<button class="plan-action-btn" style="width:100%;margin-top:4px" onclick="mmAddNode()">+ ${lang==='ru'?'Добавить ветку':'Add branch'}</button>`:''}
-    </div>`;
-  }
 
   const notes=S.notes.filter(n=>n.type===S.noteTab);
   return `
@@ -2338,7 +2578,8 @@ function rJournal(){
     <div class="j-prompt">${t().quick_note}</div>
     <textarea class="j-ta" id="noteText" placeholder="${lang==='ru'?'Запиши мысль, идею или цитату...':'Write a thought, idea or quote...'}"></textarea>
     <div style="display:flex;gap:8px;margin-top:8px">
-      <button class="btn-main" onclick="saveNote()" style="background:var(--teal);border-color:var(--teal)">${t().save}</button>
+      <button class="btn-main" onclick="saveNote()" style="flex:1;background:var(--teal);border-color:var(--teal)">${t().save}</button>
+      <button id="voiceBtn" class="btn-main" onclick="startVoiceNote()" title="${lang==='ru'?'Голосовая заметка':'Voice note'}" style="flex:0 0 auto;min-width:48px;background:var(--glass2);border:1px solid var(--border2);font-size:18px;padding:0 14px">🎤</button>
     </div>
   </div>
   <div class="stitle">${lang==='ru'?'Мои записи':'My notes'} (${notes.length})</div>
@@ -2350,11 +2591,6 @@ function rJournal(){
 }
 
 function setNoteTab(tab){S.noteTab=tab;render();}
-function mmEditCenter(v){const mm=ld('mindmap_data',{center:'',nodes:[]});mm.center=v;sv('mindmap_data',mm);}
-function mmEditNode(i,v){const mm=ld('mindmap_data',{center:'',nodes:[]});if(mm.nodes[i])mm.nodes[i].text=v;sv('mindmap_data',mm);}
-function mmSetColor(i,c){const mm=ld('mindmap_data',{center:'',nodes:[]});if(mm.nodes[i])mm.nodes[i].color=c;sv('mindmap_data',mm);render();}
-function mmDelNode(i){const mm=ld('mindmap_data',{center:'',nodes:[]});mm.nodes.splice(i,1);sv('mindmap_data',mm);render();}
-function mmAddNode(){const mm=ld('mindmap_data',{center:'',nodes:[]});if(mm.nodes.length<6){const cols=['#6c63ff','#00d4aa','#f5a623','#ff6b6b','#4a9eff'];mm.nodes.push({id:Date.now(),text:lang==='ru'?'Новая ветка':'New branch',color:cols[mm.nodes.length%cols.length]});sv('mindmap_data',mm);render();}}
 function saveNote(){
   const text=document.getElementById('noteText')?.value.trim();if(!text)return;
   S.notes.push({type:S.noteTab,text,title:'',date:new Date().toLocaleDateString()});
@@ -2460,7 +2696,9 @@ function rStats(){
   return `
   <div style="display:flex;gap:8px;margin-bottom:10px">
     <button class="btn-main" onclick="exportCSV()" style="flex:1">📊 ${lang==='ru'?'Экспорт CSV':'Export CSV'}</button>
+    <button class="btn-main" onclick="showAIWeekCoach()" style="flex:1;background:linear-gradient(135deg,rgba(108,99,255,0.18),rgba(0,212,170,0.12));border:1px solid rgba(108,99,255,0.35)">🤖 ${lang==='ru'?'AI анализ':'AI Coach'}</button>
   </div>
+  <button class="btn-main" onclick="showWeekRecap()" style="width:100%;margin-bottom:10px;background:linear-gradient(135deg,rgba(245,166,35,0.18),rgba(255,107,107,0.1));border:1px solid rgba(245,166,35,0.35);font-size:13px">🎬 ${lang==='ru'?'Recap недели':'Weekly Recap'}</button>
 
   <div class="card" style="text-align:center;padding:20px">
     <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">${lang==='ru'?'Индекс продуктивности':'Productivity Score'}</div>
@@ -2603,8 +2841,9 @@ function rSettings(){
     ${(()=>{
       const parts=S.user.wakeTime?S.user.wakeTime.split(':'):[];
       const parsedH=parseInt(parts[0]),parsedM=parseInt(parts[1]);
-      if(S.drumHour===null||isNaN(S.drumHour))S.drumHour=isNaN(parsedH)?5:parsedH;
-      if(S.drumMinute===null||isNaN(S.drumMinute)){const mins=[0,5,10,15,20,25,30,35,40,45,50,55];const closest=isNaN(parsedM)?30:mins.reduce((a,b)=>Math.abs(b-parsedM)<Math.abs(a-parsedM)?b:a);S.drumMinute=closest;}
+      // Only init drum from wakeTime if not already set by user interaction
+      if(S.drumHour===null||isNaN(S.drumHour)){S.drumHour=isNaN(parsedH)?8:parsedH;}
+      if(S.drumMinute===null||isNaN(S.drumMinute)){const mins=[0,5,10,15,20,25,30,35,40,45,50,55];const closest=isNaN(parsedM)?0:mins.reduce((a,b)=>Math.abs(b-parsedM)<Math.abs(a-parsedM)?b:a);S.drumMinute=closest;}
       const dh=S.drumHour,dm=S.drumMinute;
       const prevH=(dh+23)%24,nextH=(dh+1)%24;
       const mins=[0,5,10,15,20,25,30,35,40,45,50,55];
@@ -2616,6 +2855,7 @@ function rSettings(){
       <div style="flex:1"><div class="j-prompt">${lang==='ru'?'Вес (кг)':'Weight (kg)'}</div><input class="inp" id="sWeight" type="number" value="${S.user.weight}" placeholder="89"/></div>
       <div style="flex:1"><div class="j-prompt">${lang==='ru'?'Цель (кг)':'Target (kg)'}</div><input class="inp" id="sTarget" type="number" value="${S.user.targetWeight||''}" placeholder="80"/></div>
       <div style="flex:1"><div class="j-prompt">${lang==='ru'?'Рост (см)':'Height (cm)'}</div><input class="inp" id="sHeight" type="number" value="${S.user.height||178}" placeholder="178"/></div>
+      <div style="flex:1"><div class="j-prompt">${lang==='ru'?'Возраст':'Age'}</div><input class="inp" id="sAge" type="number" value="${S.user.age||30}" placeholder="30"/></div>
     </div>
     <button class="btn-main" onclick="saveProfile()">${t().save}</button>
   </div>
@@ -2673,6 +2913,34 @@ function rSettings(){
     </div>`;
   })()}
 
+  ${(()=>{
+    const _isRu=lang==='ru';
+    const _np=ld('push_prefs',{enabled:false,threshold:30,hour:20});
+    const _perm=('Notification' in window)?Notification.permission:'unsupported';
+    const _granted=_perm==='granted';
+    const _denied=_perm==='denied';
+    const _unsupported=_perm==='unsupported';
+    return `<div class="stitle">${_isRu?'🔔 Push уведомления':'🔔 Push Notifications'}</div>
+    <div class="j-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--text2)">${_isRu?'Напоминание о плане':'Plan reminder'}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${_isRu?'Если выполнено < 30% плана в 20:00':'If < 30% plan done at 20:00'}</div>
+        </div>
+        ${_unsupported?`<div style="font-size:11px;color:var(--text3)">${_isRu?'Не поддерживается':'Not supported'}</div>`:
+          _denied?`<div style="font-size:11px;color:var(--coral)">${_isRu?'Заблокированы в браузере':'Blocked in browser'}</div>`:
+          `<div style="width:44px;height:24px;background:${_np.enabled&&_granted?'var(--p)':'var(--border2)'};border-radius:12px;cursor:pointer;position:relative;transition:background .2s" onclick="togglePushNotif()"><div style="position:absolute;top:3px;left:${_np.enabled&&_granted?'22':'3'}px;width:18px;height:18px;background:#fff;border-radius:50%;transition:left .2s"></div></div>`
+        }
+      </div>
+
+
+      ${_denied?`<div style="font-size:11px;color:var(--text3);line-height:1.6;padding:8px;background:var(--coral2);border-radius:8px">${_isRu?'Уведомления заблокированы. Разреши вручную в Настройках браузера → Сайты → Уведомления.':'Notifications blocked. Allow manually in Browser Settings → Sites → Notifications.'}</div>`:''}
+      ${_granted?`<div style="font-size:11px;color:var(--teal);margin-bottom:8px">✓ ${_isRu?'Разрешение получено':'Permission granted'}</div>`:''}
+
+      <div style="font-size:11px;color:var(--text3);line-height:1.65">${_isRu?'Уведомление появится в 20:00, если план выполнен менее чем на 30%. Только когда приложение открыто во вкладке.':'Notification fires at 20:00 if plan is less than 30% complete. Only works while the app is open in a tab.'}</div>
+    </div>`;
+  })()}
+
   <div class="stitle">${lang==='ru'?'Интеграция с ботом':'Bot Integration'}</div>
   <div class="j-card">
     <div class="j-prompt">${lang==='ru'?'Бот @DailyhabbitOs_bot каждый вечер спрашивает твои задачи и добавляет их в план на завтра':'Bot @DailyhabbitOs_bot asks your tasks every evening and adds them to tomorrow plan'}</div>
@@ -2689,6 +2957,113 @@ function rSettings(){
       ${lang==='ru'?'Открыть бота':'Open Bot'} @DailyhabbitOs_bot
     </a>
   </div>
+
+  ${(()=>{
+    const _isRu=lang==='ru';
+    const _whToken=ld('health_webhook_token',null)||(()=>{const t='dOs_'+Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,10);sv('health_webhook_token',t);return t;})();
+    const _whUrl='https://dailyos.app/health/'+_whToken;
+    const _whCustom=ld('health_webhook_custom','');
+    const _lastSync=ld('health_last_sync',null);
+    return `<div class="stitle">${_isRu?'🍎 Apple Health':'🍎 Apple Health'}</div>
+    <div class="j-card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div style="width:44px;height:44px;background:linear-gradient(135deg,#ff2d55,#ff6b81);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">❤️</div>
+        <div><div style="font-size:14px;font-weight:700;font-family:var(--font-h);color:var(--text2)">${_isRu?'Синхронизация через Shortcuts':'Sync via Shortcuts'}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${_isRu?'Автоматический импорт Сна, Шагов, Энергии':'Auto-import Sleep, Steps, Energy'}</div></div>
+      </div>
+
+      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">${_isRu?'Твой Webhook URL':'Your Webhook URL'}</div>
+      <div style="display:flex;gap:6px;margin-bottom:4px">
+        <input id="whCustomInp" class="inp" value="${escH(_whCustom||_whUrl)}" placeholder="${_whUrl}" style="flex:1;font-size:11px;font-family:monospace;padding:8px 10px"/>
+        <button onclick="copyHealthWebhook()" style="flex:0 0 auto;padding:0 12px;background:var(--glass2);border:1px solid var(--border2);border-radius:var(--r-sm);color:var(--text2);font-size:13px;cursor:pointer" title="${_isRu?'Копировать':'Copy'}">📋</button>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:12px">${_isRu?'Используй в Shortcuts для отправки данных или подключи свой n8n / Make / Zapier':'Use in Shortcuts to POST data, or connect your own n8n / Make / Zapier'}</div>
+
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button class="btn-main" onclick="showHealthShortcutsModal()" style="flex:1;font-size:12px">📱 ${_isRu?'Инструкция для Shortcuts':'Shortcuts Setup Guide'}</button>
+        <button class="btn-main" onclick="showHealthImportModal()" style="flex:1;font-size:12px;background:var(--glass2);border:1px solid var(--border2);color:var(--text2)">📥 ${_isRu?'Импорт JSON':'Import JSON'}</button>
+      </div>
+
+      ${_lastSync?`<div style="font-size:11px;color:var(--teal)">✓ ${_isRu?'Последняя синхронизация:':'Last sync:'} ${_lastSync}</div>`:`<div style="font-size:11px;color:var(--text3)">○ ${_isRu?'Данные ещё не синхронизировались':'No data synced yet'}</div>`}
+    </div>`;
+  })()}
+
+  ${(()=>{
+    const _isPrem=ld('premium',false);
+    const _isRu=lang==='ru';
+    const _freeFeats=_isRu
+      ?['✅ Все базовые привычки и трекер','✅ Журнал, статистика, Mind Map','✅ AI Chat (со своим OpenAI ключом)','✅ Офлайн режим']
+      :['✅ All core habits & tracker','✅ Journal, stats, Mind Map','✅ AI Chat (with your OpenAI key)','✅ Offline mode'];
+    const _premFeats=_isRu
+      ?['⭐ AI брифинг без своего ключа','⭐ Неограниченный AI Коуч','⭐ Продвинутая аналитика паттернов','⭐ Приоритетная поддержка в боте']
+      :['⭐ AI Briefing without own key','⭐ Unlimited AI Week Coach','⭐ Advanced pattern analytics','⭐ Priority bot support'];
+    if(_isPrem){
+      return `<div class="stitle">${_isRu?'⭐ Premium':'⭐ Premium'}</div>
+      <div class="j-card" style="background:linear-gradient(135deg,rgba(245,166,35,0.1),rgba(108,99,255,0.08));border:1px solid rgba(245,166,35,0.3)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <div style="font-size:28px">⭐</div>
+          <div><div style="font-size:15px;font-weight:700;font-family:var(--font-h);color:var(--amber)">${_isRu?'Premium активен':'Premium Active'}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${_isRu?'Все возможности разблокированы':'All features unlocked'}</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          ${[..._freeFeats,..._premFeats].map(f=>`<div style="font-size:11px;color:var(--text2);padding:6px 8px;background:var(--glass);border-radius:8px;line-height:1.4">${f}</div>`).join('')}
+        </div>
+      </div>`;
+    }
+    return `<div class="stitle">${_isRu?'⭐ Premium':'⭐ Premium'}</div>
+    <div class="j-card" style="background:linear-gradient(135deg,rgba(108,99,255,0.08),rgba(245,166,35,0.06));border:1px solid rgba(108,99,255,0.25)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div style="font-size:30px">⭐</div>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:700;font-family:var(--font-h);color:var(--p2)">${_isRu?'Daily OS Premium':'Daily OS Premium'}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${_isRu?'Оплата Telegram Stars — без банковских карт':'Pay with Telegram Stars — no card needed'}</div>
+        </div>
+        <div style="background:var(--amber2);border:1px solid var(--amber);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;color:var(--amber)">99 ⭐</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">
+        <div style="grid-column:1/-1;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:2px">${_isRu?'Бесплатно':'Free'}</div>
+        ${_freeFeats.map(f=>`<div style="font-size:11px;color:var(--text2);padding:6px 8px;background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.12);border-radius:8px;line-height:1.4">${f}</div>`).join('')}
+        <div style="grid-column:1/-1;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--amber);margin-top:6px;margin-bottom:2px">${_isRu?'Premium':'Premium'}</div>
+        ${_premFeats.map(f=>`<div style="font-size:11px;color:var(--amber);padding:6px 8px;background:rgba(245,166,35,0.08);border:1px solid rgba(245,166,35,0.18);border-radius:8px;line-height:1.4">${f}</div>`).join('')}
+      </div>
+
+      <a href="https://t.me/DailyhabbitOs_bot?start=premium" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;background:linear-gradient(135deg,var(--p),var(--amber));border-radius:var(--r);color:#fff;text-decoration:none;font-size:14px;font-weight:700;font-family:var(--font-h);letter-spacing:.02em;box-shadow:0 4px 20px rgba(108,99,255,0.3);margin-bottom:8px">
+        <span style="font-size:18px">⭐</span> ${_isRu?'Получить Premium — 99 Stars':'Get Premium — 99 Stars'}
+      </a>
+      <div style="font-size:10px;color:var(--text3);text-align:center;line-height:1.6">${_isRu?'Оплата через Telegram Stars · Отменить можно в любой момент':'Pay via Telegram Stars · Cancel any time'}</div>
+    </div>`;
+  })()}
+
+  ${(()=>{
+    const _isRu=lang==='ru';
+    const _hasGym=!!(S.user.gymLat&&S.user.gymLng);
+    const _gymName=S.user.gymName||'';
+    const _gymRadius=S.user.gymRadius||200;
+    const _near=ld('gym_nearby',false);
+    return `<div class="stitle">📍 ${_isRu?'Геолокация':'Geolocation'}</div>
+    <div class="j-card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div style="width:42px;height:42px;background:linear-gradient(135deg,rgba(0,212,170,0.2),rgba(108,99,255,0.15));border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">📍</div>
+        <div><div style="font-size:14px;font-weight:700;font-family:var(--font-h);color:var(--text2)">${_isRu?'Автоотметка тренировки':'Auto-mark Workout'}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${_isRu?'Баннер когда ты в зале':'Banner when you\'re at the gym'}</div></div>
+      </div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">${_isRu?'Название места':'Place name'}</div>
+      <input class="inp" id="gymNameInp" value="${escH(_gymName)}" placeholder="${_isRu?'Мой зал':'My Gym'}" style="margin-bottom:8px"/>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <div style="flex:1"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">${_isRu?'Широта':'Latitude'}</div><input class="inp" id="gymLatInp" type="number" step="0.0001" value="${S.user.gymLat||''}" placeholder="55.7558"/></div>
+        <div style="flex:1"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">${_isRu?'Долгота':'Longitude'}</div><input class="inp" id="gymLngInp" type="number" step="0.0001" value="${S.user.gymLng||''}" placeholder="37.6173"/></div>
+        <div style="flex:0 0 80px"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">${_isRu?'Радиус':'Radius'}</div><input class="inp" id="gymRadInp" type="number" value="${_gymRadius}" placeholder="200" style="padding-right:4px"/></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button class="btn-main" onclick="captureGymLocation()" style="flex:1;font-size:12px">📍 ${_isRu?'Записать моё место':'Capture my location'}</button>
+        <button class="btn-main" onclick="saveGymLocation()" style="flex:1;font-size:12px;background:var(--glass2);border:1px solid var(--border2);color:var(--text2)">${_isRu?'Сохранить':'Save'}</button>
+      </div>
+      ${_hasGym
+        ?`<div style="font-size:11px;color:${_near?'var(--teal)':'var(--text3)'}">
+            ${_near?'✅ ':'○ '}${_near?(_isRu?'Ты сейчас рядом с залом':'You\'re near the gym'):(_isRu?`Зал: ${_gymName||'—'} · радиус ${_gymRadius}м`:`Gym: ${_gymName||'—'} · radius ${_gymRadius}m`)}
+          </div>`
+        :`<div style="font-size:11px;color:var(--text3)">${_isRu?'Введи координаты или нажми «Записать моё место» находясь в зале':'Enter coordinates or tap "Capture my location" while at the gym'}</div>`
+      }
+    </div>`;
+  })()}
 
   <div class="sett-section">
     <div class="sett-item" onclick="clearChat()"><div class="sett-ico">🗑</div><div class="sett-text"><div class="sett-label">${lang==='ru'?'Очистить чат':'Clear chat'}</div></div><div class="sett-arr">›</div></div>
@@ -2713,6 +3088,7 @@ function saveProfile(){
   S.user.weight=parseFloat(document.getElementById('sWeight')?.value)||S.user.weight;
   S.user.targetWeight=parseFloat(document.getElementById('sTarget')?.value)||S.user.targetWeight;
   S.user.height=parseFloat(document.getElementById('sHeight')?.value)||S.user.height;
+  S.user.age=parseInt(document.getElementById('sAge')?.value)||S.user.age||30;
   sv('user',S.user);toast('✓ '+(lang==='ru'?'Сохранено':'Saved'));render();
 }
 function saveKey(){const k=document.getElementById('apiInp')?.value.trim();if(!k)return;localStorage.setItem('openai_key',k);toast('✓');render();}
@@ -2809,6 +3185,13 @@ function obFinish(){
   S.dayPlan.sort((a,b)=>{const ha=HABIT_LIB.find(x=>x.id===a.id),hb=HABIT_LIB.find(x=>x.id===b.id);return ha&&hb?ha.time.localeCompare(hb.time):0;});
   sv('user',S.user);sv('my_habits',S.myHabits);sv('day_plan_'+tk(),S.dayPlan);sv('ob_done',true);
   document.getElementById('ob').style.display='none';buildNav();render();
+  initTimeOfDay();
+  // Ask for notification permission after onboarding (gentle, after a short delay)
+  setTimeout(()=>{
+    if('Notification' in window && Notification.permission==='default'){
+      requestNotifPermission();
+    }
+  },2000);
 }
 function obToggleAllergy(id,el){
   if(id==='none'){
@@ -2857,7 +3240,902 @@ if(!obDone&&!hasName){
   const _initHash=window.location.hash;
   if(_hashMap[_initHash])S.tab=_hashMap[_initHash];
   buildNav();render();
+  // Restore scheduled reminder for returning users
+  if('Notification' in window && Notification.permission==='granted'){
+    scheduleEveningReminder();
+  }
+  // Check gym proximity on startup
+  initGeoLocation();
+  // Fetch weather (cached 30 min)
+  initWeather();
+  // Adaptive UI — time of day
+  initTimeOfDay();
+}
+
+// ── OFFLINE / SERVICE WORKER ───────────────────────────────────────────────────
+(function initOffline(){
+  const banner=document.getElementById('offlineBanner');
+  const bannerText=document.getElementById('offlineBannerText');
+  function syncBanner(){
+    if(!banner)return;
+    const isRu=lang==='ru';
+    if(navigator.onLine){
+      banner.classList.remove('show');
+    } else {
+      bannerText.textContent=isRu?'Офлайн — данные сохранены локально':'Offline — data saved locally';
+      banner.classList.add('show');
+    }
+  }
+  window.addEventListener('online', syncBanner);
+  window.addEventListener('offline', syncBanner);
+  syncBanner();
+
+  // Service Worker via Blob URL (best-effort; scope may be limited by browser)
+  if('serviceWorker' in navigator){
+    try{
+      const swCode=`
+const CACHE_NAME='daily-os-v1';
+self.addEventListener('install',e=>{self.skipWaiting();});
+self.addEventListener('activate',e=>{e.waitUntil(self.clients.claim());});
+self.addEventListener('fetch',e=>{
+  if(e.request.method!=='GET')return;
+  e.respondWith(
+    caches.open(CACHE_NAME).then(cache=>
+      cache.match(e.request).then(cached=>{
+        const netFetch=fetch(e.request).then(resp=>{
+          if(resp&&resp.status===200&&resp.type!=='opaque'){
+            cache.put(e.request,resp.clone());
+          }
+          return resp;
+        }).catch(()=>cached||new Response('Offline',{status:503,statusText:'Offline'}));
+        return cached||netFetch;
+      })
+    )
+  );
+});
+      `;
+      const blob=new Blob([swCode],{type:'text/javascript'});
+      const swUrl=URL.createObjectURL(blob);
+      navigator.serviceWorker.register(swUrl).catch(()=>{});
+    }catch(e){}
+
+    // Cache current page directly via Cache API
+    if('caches' in window){
+      caches.open('daily-os-v1').then(c=>{
+        try{c.add(location.href);}catch(e){}
+      }).catch(()=>{});
+    }
+  }
+})();
+
+// ── MODAL HELPERS ─────────────────────────────────────────────────────────────
+function openModal(title, bodyHtml){
+  document.getElementById('modalTitle').innerHTML=title;
+  document.getElementById('modalBody').innerHTML=bodyHtml;
+  document.getElementById('modal').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeModal(){
+  document.getElementById('modal').classList.remove('open');
+  document.body.style.overflow='';
+}
+
+// ── AI MORNING BRIEFING ───────────────────────────────────────────────────────
+async function showAIBriefing(){
+  if(!getKey()){
+    toast(lang==='ru'?'Добавь OpenAI ключ в Настройки':'Add OpenAI key in Settings');
+    tab('settings');return;
+  }
+  openModal(
+    '☀️ '+(lang==='ru'?'AI Брифинг':'AI Briefing'),
+    `<div style="text-align:center;padding:40px 0;color:var(--text3)">
+      <div style="font-size:28px;margin-bottom:12px;animation:tb 1.2s ease infinite">✦</div>
+      <div style="font-size:13px">${lang==='ru'?'Анализирую твой день...':'Analysing your day...'}</div>
+    </div>`
+  );
+
+  const yest=new Date(Date.now()-86400000).toISOString().slice(0,10);
+  const yestHealth=ld('health_'+yest,{});
+  const habitNames=S.dayPlan.map(p=>{
+    const h=HABIT_LIB.find(x=>x.id===p.id);
+    return h?(h.name[lang]||h.name.ru):null;
+  }).filter(Boolean).slice(0,8).join(', ');
+  const prompt=lang==='ru'
+    ?`Ты личный коуч по продуктивности. Составь краткий утренний брифинг для ${S.user.name||'пользователя'}.
+Контекст: Цель: ${S.user.goal||'—'}, Вес: ${S.user.weight||'—'}кг, Настроение вчера: ${yestHealth.mood||'нет данных'}/10, Привычки на сегодня: ${habitNames||'нет'}.
+Ответь СТРОГО в формате:
+🎯 ПЛАН
+[3 конкретных приоритета на сегодня, по одному на строку]
+💡 СОВЕТ
+[один конкретный совет по достижению цели, 2-3 предложения]
+🔥 МОТИВАЦИЯ
+[короткое мощное напутствие, 1-2 предложения]`
+    :`You are a personal productivity coach. Create a morning briefing for ${S.user.name||'the user'}.
+Context: Goal: ${S.user.goal||'—'}, Weight: ${S.user.weight||'—'}kg, Yesterday's mood: ${yestHealth.mood||'no data'}/10, Today's habits: ${habitNames||'none'}.
+Reply STRICTLY in this format:
+🎯 PLAN
+[3 specific priorities for today, one per line]
+💡 TIP
+[one specific actionable tip for their goal, 2-3 sentences]
+🔥 MOTIVATION
+[short powerful motivational message, 1-2 sentences]`;
+
+  try{
+    const res=await fetch('https://api.openai.com/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+getKey()},
+      body:JSON.stringify({model:'gpt-4o-mini',max_tokens:400,temperature:0.8,
+        messages:[{role:'user',content:prompt}]})
+    });
+    const data=await res.json();
+    const text=(data.choices?.[0]?.message?.content||'').trim();
+
+    // Parse sections from the text
+    const sections=[];
+    const sectionMap=lang==='ru'
+      ?[{ico:'🎯',key:'ПЛАН'},{ico:'💡',key:'СОВЕТ'},{ico:'🔥',key:'МОТИВАЦИЯ'}]
+      :[{ico:'🎯',key:'PLAN'},{ico:'💡',key:'TIP'},{ico:'🔥',key:'MOTIVATION'}];
+
+    sectionMap.forEach((s,i)=>{
+      const next=sectionMap[i+1];
+      const startRe=new RegExp(s.ico+'\\s*'+s.key+'\\s*\\n','i');
+      const endRe=next?new RegExp(next.ico+'\\s*'+next.key,'i'):null;
+      const startM=text.match(startRe);
+      if(!startM)return;
+      const start=startM.index+startM[0].length;
+      const end=endRe?(text.search(endRe)):text.length;
+      const body=text.slice(start,end).trim();
+      sections.push({ico:s.ico,key:s.key,body});
+    });
+
+    const bodyHtml=sections.length
+      ?sections.map(s=>`
+        <div class="modal-section">
+          <div class="modal-section-ttl">${s.ico} ${s.key}</div>
+          <div class="modal-section-body">${escH(s.body).replace(/\n/g,'<br>')}</div>
+        </div>`).join('')
+      :`<div class="modal-section"><div class="modal-section-body">${escH(text).replace(/\n/g,'<br>')}</div></div>`;
+
+    openModal('☀️ '+(lang==='ru'?'AI Брифинг':'AI Briefing'), bodyHtml);
+  }catch(e){
+    openModal('☀️ '+(lang==='ru'?'AI Брифинг':'AI Briefing'),
+      `<div class="modal-section"><div class="modal-section-body" style="color:var(--coral)">${lang==='ru'?'Ошибка запроса. Проверь API ключ.':'Request failed. Check your API key.'}</div></div>`);
+  }
+}
+
+// ── APPLE HEALTH INTEGRATION ──────────────────────────────────────────────────
+function copyHealthWebhook(){
+  const inp=document.getElementById('whCustomInp');
+  const url=inp?inp.value.trim():'';
+  if(!url)return;
+  if(navigator.clipboard){navigator.clipboard.writeText(url).then(()=>toast('📋 '+(lang==='ru'?'URL скопирован':'URL copied'))).catch(()=>_legacyCopy(url));}
+  else{_legacyCopy(url);}
+}
+function _legacyCopy(text){
+  const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast('📋 '+(lang==='ru'?'URL скопирован':'URL copied'));}catch(e){}document.body.removeChild(ta);
+}
+
+function showHealthShortcutsModal(){
+  const _isRu=lang==='ru';
+  const _whToken=ld('health_webhook_token','YOUR_TOKEN');
+  const _whCustom=ld('health_webhook_custom','');
+  const _url=escH(_whCustom||('https://dailyos.app/health/'+_whToken));
+  const _steps=_isRu?[
+    {ico:'📱',title:'Открой Shortcuts на iPhone',body:'Приложение «Команды» → нажми <b>+</b> для нового шортката'},
+    {ico:'❤️',title:'Добавь Health данные',body:'Найди действие <b>«Найти образцы здоровья»</b> (Find Health Samples) → выбери тип: <b>Анализ сна</b> (Sleep Analysis). Повтори для <b>Активная энергия</b> и <b>Шаги</b>.'},
+    {ico:'📊',title:'Форматируй в JSON',body:'Добавь действие <b>«Текст»</b> (Text) и вставь:<br><code style="font-size:10px;word-break:break-all">{\"sleep\":[Сон ч],\"steps\":[Шаги],\"energy\":[Энергия]}</code><br>Подставь переменные из предыдущих шагов.'},
+    {ico:'🌐',title:'Отправь на Webhook',body:'Добавь <b>«Получить содержимое URL»</b> (Get Contents of URL):<br>• URL: <code style="font-size:10px;word-break:break-all">'+_url+'</code><br>• Метод: <b>POST</b><br>• Тело запроса: Текст из шага выше'},
+    {ico:'⏰',title:'Настрой автоматизацию',body:'Вкладка <b>Автоматизация</b> → Новая → <b>Время суток</b> → 07:00 ежедневно → выбери этот шорткат'},
+    {ico:'✅',title:'Проверь подключение',body:'Запусти шорткат вручную → вернись в Daily OS → нажми <b>«Импорт JSON»</b> чтобы вставить данные вручную если автоматика ещё не готова'},
+  ]:[
+    {ico:'📱',title:'Open Shortcuts on iPhone',body:'Tap the <b>+</b> button to create a new shortcut'},
+    {ico:'❤️',title:'Add Health actions',body:'Search for <b>«Find Health Samples»</b> → choose type: <b>Sleep Analysis</b>. Repeat for <b>Active Energy</b> and <b>Steps</b>.'},
+    {ico:'📊',title:'Format as JSON',body:'Add a <b>Text</b> action and paste:<br><code style="font-size:10px;word-break:break-all">{\"sleep\":[Sleep hrs],\"steps\":[Steps],\"energy\":[Energy]}</code><br>Replace values with variables from previous steps.'},
+    {ico:'🌐',title:'POST to Webhook',body:'Add <b>«Get Contents of URL»</b>:<br>• URL: <code style="font-size:10px;word-break:break-all">'+_url+'</code><br>• Method: <b>POST</b><br>• Request Body: Text from step above'},
+    {ico:'⏰',title:'Set up Automation',body:'Go to <b>Automation</b> tab → New → <b>Time of Day</b> → 07:00 daily → select this shortcut'},
+    {ico:'✅',title:'Verify connection',body:'Run the shortcut manually → return to Daily OS → tap <b>«Import JSON»</b> to paste data manually if automation isn\'t ready yet'},
+  ];
+  const _body=_steps.map((s,i)=>`
+    <div class="modal-section" style="padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <div style="flex-shrink:0;width:28px;height:28px;background:var(--p3);border:1px solid var(--p);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--p2)">${i+1}</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:4px">${s.ico} ${s.title}</div>
+          <div style="font-size:12px;color:var(--text3);line-height:1.65">${s.body}</div>
+        </div>
+      </div>
+    </div>`).join('');
+  openModal('📱 '+(lang==='ru'?'Подключение Apple Health':'Apple Health Setup'), _body);
+}
+
+function showHealthImportModal(){
+  const _isRu=lang==='ru';
+  openModal('📥 '+(lang==='ru'?'Импорт данных здоровья':'Import Health Data'),
+    `<div class="modal-section">
+      <div class="modal-section-ttl">${_isRu?'Вставь JSON с данными':'Paste health data JSON'}</div>
+      <div class="modal-section-body" style="margin-bottom:10px">${_isRu?'Формат: {"sleep":7.5,"steps":8200,"energy":6,"stress":3}':'Format: {"sleep":7.5,"steps":8200,"energy":6,"stress":3}'}</div>
+      <textarea id="healthJsonInp" style="width:100%;min-height:90px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r-sm);padding:10px;font-size:12px;color:var(--text2);font-family:monospace;resize:vertical" placeholder='{"sleep":7.5,"steps":8200,"energy":7,"stress":3}'></textarea>
+    </div>
+    <button class="btn-main" onclick="importHealthJSON()" style="width:100%;margin-top:4px">📥 ${_isRu?'Импортировать':'Import'}</button>`
+  );
+}
+
+function importHealthJSON(){
+  const _isRu=lang==='ru';
+  const raw=(document.getElementById('healthJsonInp')?.value||'').trim();
+  if(!raw){toast(_isRu?'Вставь JSON данные':'Paste JSON data first');return;}
+  let data;
+  try{data=JSON.parse(raw);}catch(e){toast(_isRu?'⚠️ Неверный JSON формат':'⚠️ Invalid JSON format');return;}
+  const today=tk();
+  const hk='health_'+today;
+  const existing=ld(hk,{});
+  if(data.sleep!==undefined)existing.sleep=parseFloat(data.sleep)||existing.sleep;
+  if(data.energy!==undefined)existing.energy=parseFloat(data.energy)||existing.energy;
+  if(data.stress!==undefined)existing.stress=parseFloat(data.stress)||existing.stress;
+  if(data.steps!==undefined)existing.steps=parseInt(data.steps)||existing.steps||0;
+  sv(hk,existing);
+  S.health=Object.assign(S.health,{sleep:existing.sleep,energy:existing.energy,stress:existing.stress});
+  const _syncTime=new Date().toLocaleTimeString(_isRu?'ru-RU':'en-US',{hour:'2-digit',minute:'2-digit'});
+  sv('health_last_sync',new Date().toLocaleDateString()+' '+_syncTime);
+  closeModal();
+  toast('✅ '+(lang==='ru'?'Данные здоровья импортированы':'Health data imported'));
+  render();
+}
+
+let _voiceRec=null;
+function startVoiceNote(){
+  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SpeechRecognition){
+    toast(lang==='ru'?'🎤 Голосовой ввод не поддерживается в этом браузере':'🎤 Voice input not supported in this browser');
+    return;
+  }
+  const btn=document.getElementById('voiceBtn');
+  // if already recording — stop
+  if(_voiceRec){
+    try{_voiceRec.stop();}catch(e){}
+    _voiceRec=null;
+    if(btn){btn.textContent='🎤';btn.style.background='var(--glass2)';btn.style.borderColor='var(--border2)';}
+    return;
+  }
+  const rec=new SpeechRecognition();
+  rec.lang=lang==='ru'?'ru-RU':'en-US';
+  rec.interimResults=false;
+  rec.maxAlternatives=1;
+  rec.continuous=false;
+  _voiceRec=rec;
+  if(btn){btn.textContent='⏹';btn.style.background='rgba(255,107,107,0.2)';btn.style.borderColor='var(--coral)';}
+  toast(lang==='ru'?'🎤 Говори…':'🎤 Listening…');
+  rec.onresult=e=>{
+    const transcript=(e.results[0][0].transcript||'').trim();
+    const ta=document.getElementById('noteText');
+    if(ta){
+      ta.value=ta.value?(ta.value+' '+transcript):transcript;
+      ta.dispatchEvent(new Event('input'));
+    }
+    toast('✓ '+(lang==='ru'?'Записано':'Captured'));
+  };
+  rec.onerror=e=>{
+    const msgs={
+      'not-allowed':lang==='ru'?'Нет разрешения на микрофон. Разреши в браузере.':'Microphone permission denied. Allow in browser.',
+      'no-speech':lang==='ru'?'Ничего не услышал. Попробуй ещё раз.':'No speech detected. Try again.',
+      'network':lang==='ru'?'Ошибка сети при распознавании.':'Network error during recognition.',
+    };
+    toast('⚠️ '+(msgs[e.error]||(lang==='ru'?'Ошибка распознавания.':'Recognition error.')));
+    _voiceRec=null;
+    if(btn){btn.textContent='🎤';btn.style.background='var(--glass2)';btn.style.borderColor='var(--border2)';}
+  };
+  rec.onend=()=>{
+    _voiceRec=null;
+    if(btn){btn.textContent='🎤';btn.style.background='var(--glass2)';btn.style.borderColor='var(--border2)';}
+  };
+  try{rec.start();}catch(e){
+    toast(lang==='ru'?'Не удалось запустить микрофон':'Could not start microphone');
+    _voiceRec=null;
+    if(btn){btn.textContent='🎤';btn.style.background='var(--glass2)';btn.style.borderColor='var(--border2)';}
+  }
+}
+
+async function showAIWeekCoach(){
+  if(!getKey()){toast(lang==='ru'?'Добавь OpenAI ключ в Настройках':'Add OpenAI key in Settings');tab('settings');return;}
+  openModal('🤖 '+(lang==='ru'?'AI Коуч — Анализ недели':'AI Coach — Week Review'),
+    `<div class="modal-section"><div class="modal-section-body" style="text-align:center;padding:20px 0">
+      <div style="font-size:28px;margin-bottom:8px">🤖</div>
+      <div style="font-size:13px;color:var(--text3)">${lang==='ru'?'Анализирую твою неделю…':'Analyzing your week…'}</div>
+    </div></div>`);
+
+  // collect 7-day health averages
+  const _h7=[];
+  for(let _i=6;_i>=0;_i--){
+    const _dk=new Date(Date.now()-_i*86400000).toISOString().slice(0,10);
+    const _hd=ld('health_'+_dk,{});
+    _h7.push({sleep:_hd.sleep||0,energy:_hd.energy||0,stress:_hd.stress||0});
+  }
+  const _avg=key=>{const f=_h7.filter(d=>d[key]>0);return f.length?(Math.round(f.reduce((s,d)=>s+d[key],0)/f.length*10)/10):0;};
+  const _avgSleep=_avg('sleep'),_avgEnergy=_avg('energy'),_avgStress=_avg('stress');
+
+  // collect 7-day habit completion %
+  const _planPcts=[];
+  for(let _i=6;_i>=0;_i--){
+    const _dk=new Date(Date.now()-_i*86400000).toISOString().slice(0,10);
+    const _dp=ld('day_plan_'+_dk,[]);
+    if(_dp.length)_planPcts.push(Math.round(_dp.filter(x=>x.done).length/_dp.length*100));
+  }
+  const _avgPlan=_planPcts.length?Math.round(_planPcts.reduce((s,v)=>s+v,0)/_planPcts.length):0;
+
+  // collect victories from last 7 days
+  const _wins7=[];
+  for(let _i=0;_i<7;_i++){
+    const _dk=new Date(Date.now()-_i*86400000).toISOString().slice(0,10);
+    ld('journal_victories_'+_dk,[]).forEach(v=>{if((v||'').trim())_wins7.push(v.trim());});
+  }
+
+  // current habits list
+  const _habitNames=(S.myHabits||[]).slice(0,8).join(', ')||'—';
+  const _isRu=lang==='ru';
+
+  const _sysPrompt=`You are a personal productivity and wellness coach. Analyze the user's weekly data and provide concrete, personalized insights. Respond in ${_isRu?'Russian':'English'}. Be warm but direct. Use bullet points. Keep each section under 80 words.`;
+  const _userPrompt=`User: ${S.user.name||'User'}. Goal: ${S.user.goal||'personal growth'}. Streak: ${S.streak.count} days.
+Weekly data (last 7 days):
+- Avg sleep: ${_avgSleep}/10 • Avg energy: ${_avgEnergy}/10 • Avg stress: ${_avgStress}/10
+- Avg plan completion: ${_avgPlan}%
+- Habits tracked: ${_habitNames}
+- Wins logged: ${_wins7.slice(0,5).join(' / ')||'none'}
+
+Respond EXACTLY in this format (use these headers):
+${_isRu?'📊 АНАЛИЗ\n[what went well and what didn\'t, 2-3 bullets]\n\n💡 ИНСАЙТЫ\n[3 key patterns or observations]\n\n🚀 ДЕЙСТВИЯ\n[3 specific actions for next week]':'📊 ANALYSIS\n[what went well and what didn\'t, 2-3 bullets]\n\n💡 INSIGHTS\n[3 key patterns or observations]\n\n🚀 ACTIONS\n[3 specific actions for next week]'}`;
+
+  try{
+    const _res=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getKey()},body:JSON.stringify({model:'gpt-4o-mini',max_tokens:600,messages:[{role:'system',content:_sysPrompt},{role:'user',content:_userPrompt}]})});
+    const _json=await _res.json();
+    const _txt=(_json.choices?.[0]?.message?.content||'').trim();
+    if(!_txt)throw new Error('empty');
+
+    // parse sections by emoji headers
+    const _secEmojis=_isRu?[['📊','АНАЛИЗ'],['💡','ИНСАЙТЫ'],['🚀','ДЕЙСТВИЯ']]:
+                            [['📊','ANALYSIS'],['💡','INSIGHTS'],['🚀','ACTIONS']];
+    const _secColors=['var(--p2)','var(--teal)','var(--amber)'];
+    const _secBg=['rgba(108,99,255,0.08)','rgba(0,212,170,0.08)','rgba(245,166,35,0.08)'];
+    const _secBorder=['rgba(108,99,255,0.2)','rgba(0,212,170,0.2)','rgba(245,166,35,0.2)'];
+
+    // split text by section headers
+    const _parts=[];
+    let _remaining=_txt;
+    for(let _si=0;_si<_secEmojis.length;_si++){
+      const [_emoji,_label]=_secEmojis[_si];
+      const _header=_emoji+' '+_label;
+      const _start=_remaining.indexOf(_header);
+      if(_start===-1){_parts.push(null);continue;}
+      const _nextStarts=_secEmojis.slice(_si+1).map(([e,l])=>_remaining.indexOf(e+' '+l,_start+1)).filter(p=>p>-1);
+      const _end=_nextStarts.length?Math.min(..._nextStarts):_remaining.length;
+      _parts.push(_remaining.slice(_start+_header.length,_end).trim());
+    }
+
+    const _bodyHtml=_secEmojis.map(([_emoji,_label],_si)=>{
+      const _content=_parts[_si];
+      if(!_content)return '';
+      return `<div class="modal-section" style="background:${_secBg[_si]};border:1px solid ${_secBorder[_si]};border-radius:12px;margin-bottom:10px">
+        <div class="modal-section-ttl" style="color:${_secColors[_si]}">${_emoji} ${_label}</div>
+        <div class="modal-section-body" style="white-space:pre-wrap;line-height:1.65">${escH(_content)}</div>
+      </div>`;
+    }).join('');
+
+    openModal('🤖 '+(lang==='ru'?'AI Коуч — Анализ недели':'AI Coach — Week Review'), _bodyHtml);
+  }catch(e){
+    openModal('🤖 '+(lang==='ru'?'AI Коуч':'AI Coach'),
+      `<div class="modal-section"><div class="modal-section-body" style="color:var(--coral)">${lang==='ru'?'Ошибка запроса. Проверь API ключ.':'Request failed. Check your API key.'}</div></div>`);
+  }
+}
+
+// ── DEEP WORK MODE ────────────────────────────────────────────────────────────
+let _dwActive=false,_dwPaused=false,_dwTotal=0,_dwRemaining=0,_dwInterval=null,_dwStartTs=0;
+const DW_CIRC=603.2; // 2*π*96
+
+function startDeepWork(mins){
+  _dwTotal=mins*60;
+  _dwRemaining=_dwTotal;
+  _dwPaused=false;
+  _dwActive=true;
+  _dwStartTs=Date.now();
+  document.getElementById('deepWorkOverlay').classList.add('dw-active');
+  document.getElementById('dwArc').style.stroke='#6c63ff';
+  document.getElementById('dwRing').classList.remove('dw-paused');
+  _dwUpdateDisplay();
+  _dwUpdateStatus(lang==='ru'?'Фокусируйся 🎯':'Stay focused 🎯');
+  if(_dwInterval)clearInterval(_dwInterval);
+  _dwInterval=setInterval(_dwTick,1000);
+  // hide nav
+  const nav=document.querySelector('.nav');
+  if(nav)nav.style.display='none';
+}
+
+function _dwTick(){
+  if(_dwPaused||!_dwActive)return;
+  _dwRemaining--;
+  _dwUpdateDisplay();
+  if(_dwRemaining<=0){
+    clearInterval(_dwInterval);_dwInterval=null;
+    stopDeepWork(true);
+  }
+}
+
+function _dwUpdateDisplay(){
+  const m=Math.floor(_dwRemaining/60),s=_dwRemaining%60;
+  const el=document.getElementById('dwTime');
+  if(el)el.textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  const arc=document.getElementById('dwArc');
+  if(arc){
+    const pct=_dwTotal>0?_dwRemaining/_dwTotal:1;
+    arc.style.strokeDashoffset=((1-pct)*DW_CIRC).toFixed(1);
+    // color shift: green when fresh → amber in middle → coral near end
+    arc.style.stroke=pct>0.5?'#6c63ff':pct>0.2?'#f5a623':'#ff6b6b';
+  }
+}
+
+function _dwUpdateStatus(msg){
+  const el=document.getElementById('dwStatus');
+  if(el)el.textContent=msg;
+}
+
+function pauseDeepWork(){
+  _dwPaused=!_dwPaused;
+  const btn=document.getElementById('dwPauseBtn');
+  const ring=document.getElementById('dwRing');
+  const _isRu=lang==='ru';
+  if(_dwPaused){
+    if(btn)btn.textContent='▶ '+(_isRu?'Продолжить':'Resume');
+    if(ring)ring.classList.add('dw-paused');
+    _dwUpdateStatus(_isRu?'Пауза':'Paused');
+  } else {
+    if(btn)btn.textContent='⏸ '+(_isRu?'Пауза':'Pause');
+    if(ring)ring.classList.remove('dw-paused');
+    _dwUpdateStatus(_isRu?'Фокусируйся 🎯':'Stay focused 🎯');
+  }
+}
+
+function addDeepWorkTime(mins){
+  _dwRemaining+=mins*60;
+  _dwTotal+=mins*60;
+  _dwUpdateDisplay();
+  toast(lang==='ru'?`+${mins} мин`:`+${mins} min`);
+}
+
+function stopDeepWork(completed){
+  const _isRu=lang==='ru';
+  const elapsed=Math.round((_dwTotal-_dwRemaining)/60);
+  _dwActive=false;_dwPaused=false;
+  if(_dwInterval){clearInterval(_dwInterval);_dwInterval=null;}
+  document.getElementById('deepWorkOverlay').classList.remove('dw-active');
+  // restore nav
+  const nav=document.querySelector('.nav');
+  if(nav)nav.style.display='';
+  // reset display for next time
+  document.getElementById('dwTime').textContent='25:00';
+  document.getElementById('dwRing').classList.remove('dw-paused');
+  const arc=document.getElementById('dwArc');
+  if(arc){arc.style.strokeDashoffset='0';arc.style.stroke='#6c63ff';}
+  document.getElementById('dwPauseBtn').textContent='⏸ '+(_isRu?'Пауза':'Pause');
+
+  if(elapsed<1){return;} // nothing done
+
+  // save session
+  const sessions=ld('deepwork_sessions',[]);
+  sessions.push({date:tk(),mins:elapsed,completed,ts:Date.now()});
+  sv('deepwork_sessions',sessions);
+
+  if(completed){
+    addXP(30);
+    _dwPlayBeep();
+    toast('🎯 '+(lang==='ru'?`Deep Work ${elapsed} мин — +30 XP! 🔥`:`Deep Work ${elapsed} min — +30 XP! 🔥`));
+  } else {
+    if(elapsed>=5)addXP(10);
+    toast('⏹ '+(lang==='ru'?`Сессия ${elapsed} мин сохранена`:`${elapsed} min session saved`));
+  }
+  render();
+}
+
+function _dwPlayBeep(){
+  try{
+    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const play=(freq,start,dur)=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.frequency.value=freq;o.type='sine';
+      g.gain.setValueAtTime(0,ctx.currentTime+start);
+      g.gain.linearRampToValueAtTime(0.3,ctx.currentTime+start+0.01);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+start+dur);
+      o.start(ctx.currentTime+start);o.stop(ctx.currentTime+start+dur+0.05);
+    };
+    play(523,0,0.18);play(659,0.2,0.18);play(784,0.4,0.35);
+  }catch(e){}
+}
+
+// ── WEEKLY CINEMATICS (Recap) ─────────────────────────────────────────────────
+function showWeekRecap(){
+  const _isRu=lang==='ru';
+  // ── collect 7-day data ──────────────────────────────────────────────────────
+  let totalDone=0,totalTasks=0,bestDay='',bestPct=0;
+  let sleepSum=0,sleepCnt=0,energySum=0,energyCnt=0;
+  const days=_isRu?['Пн','Вт','Ср','Чт','Пт','Сб','Вс']:['Mo','Tu','We','Th','Fr','Sa','Su'];
+  for(let i=6;i>=0;i--){
+    const d=new Date(Date.now()-i*86400000);
+    const dk=d.toISOString().slice(0,10);
+    const dp=ld('day_plan_'+dk,[]);
+    const hd=ld('health_'+dk,{});
+    if(dp.length){
+      const done=dp.filter(x=>x.done).length;
+      totalDone+=done;totalTasks+=dp.length;
+      const pct=Math.round(done/dp.length*100);
+      if(pct>bestPct){bestPct=pct;bestDay=days[(d.getDay()+6)%7];}
+    }
+    if(hd.sleep){sleepSum+=hd.sleep;sleepCnt++;}
+    if(hd.energy){energySum+=hd.energy;energyCnt++;}
+  }
+  const avgPct=totalTasks?Math.round(totalDone/totalTasks*100):0;
+  const avgSleep=sleepCnt?(Math.round(sleepSum/sleepCnt*10)/10):0;
+  const avgEnergy=energyCnt?(Math.round(energySum/energyCnt*10)/10):0;
+
+  // XP gained this week (total minus 7 days ago snapshot — estimate from total)
+  const xpNow=S.xp;
+  const xpWeek=Math.max(0,xpNow-ld('xp_week_start',0));
+  sv('xp_week_start',xpNow); // update baseline each time recap opened
+
+  // victories this week
+  const wins=[];
+  for(let i=0;i<7;i++){
+    const dk=new Date(Date.now()-i*86400000).toISOString().slice(0,10);
+    ld('journal_victories_'+dk,[]).forEach(v=>{if((v||'').trim())wins.push(v.trim());});
+  }
+
+  // streak
+  const streak=S.streak.count;
+
+  // ── build modal HTML ────────────────────────────────────────────────────────
+  const _block=(ico,label,value,color,delay)=>`
+    <div class="recap-block" style="animation-delay:${delay}s;background:linear-gradient(135deg,${color}18,${color}08);border:1px solid ${color}30;border-radius:16px;padding:14px 12px;text-align:center;flex:1;min-width:0">
+      <div style="font-size:22px;margin-bottom:4px">${ico}</div>
+      <div class="recap-num" style="font-size:26px;font-weight:800;font-family:var(--font-h);color:${color};line-height:1;animation-delay:${delay+0.1}s">${value}</div>
+      <div style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">${label}</div>
+    </div>`;
+
+  const row1=`<div style="display:flex;gap:8px;margin-bottom:8px">
+    ${_block('✅',_isRu?'план выполнен':' plan done',avgPct+'%','#00d4aa',0.05)}
+    ${_block('🏆',_isRu?'лучший день':'best day',bestDay||'—','#f5a623',0.12)}
+    ${_block('🔥',_isRu?'стрик':'streak',streak+(_isRu?'д':'d'),'#ff6b6b',0.19)}
+  </div>`;
+  const row2=`<div style="display:flex;gap:8px;margin-bottom:8px">
+    ${_block('😴',_isRu?'ср. сон':'avg sleep',avgSleep||'—','#8b85ff',0.26)}
+    ${_block('⚡',_isRu?'энергия':'energy',avgEnergy||'—','#f5a623',0.33)}
+    ${_block('🎯',_isRu?'XP за неделю':'XP earned','+'+xpWeek,'#6c63ff',0.40)}
+  </div>`;
+
+  const winsHtml=wins.length
+    ?`<div class="recap-block" style="animation-delay:.45s;background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.2);border-radius:16px;padding:14px;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(245,166,35,0.7);margin-bottom:10px">🏅 ${_isRu?'Победы недели':'Week victories'}</div>
+        ${wins.slice(0,5).map(w=>`<div style="font-size:12px;color:rgba(255,255,255,0.7);padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.06);line-height:1.4">✦ ${escH(w)}</div>`).join('')}
+      </div>`
+    :'';
+
+  // share text
+  const shareText=(_isRu
+    ?`📊 Мой Week Recap:\n✅ Выполнение плана: ${avgPct}%\n🏆 Лучший день: ${bestDay||'—'}\n😴 Ср. сон: ${avgSleep}/10\n⚡ Энергия: ${avgEnergy}/10\n🔥 Стрик: ${streak} дней\n🎯 XP за неделю: +${xpWeek}`
+    :`📊 My Week Recap:\n✅ Plan completion: ${avgPct}%\n🏆 Best day: ${bestDay||'—'}\n😴 Avg sleep: ${avgSleep}/10\n⚡ Energy: ${avgEnergy}/10\n🔥 Streak: ${streak} days\n🎯 XP earned: +${xpWeek}`
+  );
+
+  const shareBtn=`<div class="recap-block" style="animation-delay:.52s">
+    <button onclick="shareWeekRecap()" style="width:100%;padding:13px;background:linear-gradient(135deg,#6c63ff,#00d4aa);border:none;border-radius:14px;color:#fff;font-size:14px;font-weight:700;font-family:var(--font-h);cursor:pointer;letter-spacing:.02em">
+      ${_isRu?'📤 Поделиться в Telegram':'📤 Share to Telegram'}
+    </button>
+  </div>`;
+
+  sv('week_recap_text',shareText);
+  openModal('🎬 '+(lang==='ru'?'Recap недели':'Weekly Recap'),
+    `<div style="padding-bottom:4px">${row1}${row2}${winsHtml}${shareBtn}</div>`);
+}
+
+function shareWeekRecap(){
+  const text=ld('week_recap_text','');
+  const _isRu=lang==='ru';
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(text).then(()=>{
+      toast(_isRu?'📋 Скопировано! Вставь в Telegram':'📋 Copied! Paste into Telegram');
+    }).catch(()=>_legacyCopyRecap(text));
+  } else {
+    _legacyCopyRecap(text);
+  }
+}
+function _legacyCopyRecap(text){
+  const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);ta.select();
+  try{document.execCommand('copy');toast(lang==='ru'?'📋 Скопировано!':'📋 Copied!');}catch(e){}
+  document.body.removeChild(ta);
+}
+
+// ── ADAPTIVE UI — TIME OF DAY ─────────────────────────────────────────────────
+var TOD_MODES={
+  morning:{filter:'saturate(1.15) brightness(1.03)',overlay:'transparent',label:'morning'},
+  day:    {filter:'saturate(1.0) brightness(1.0)',  overlay:'transparent',label:'day'},
+  evening:{filter:'saturate(0.92) brightness(0.97) hue-rotate(8deg)',overlay:'rgba(255,160,60,0.04)',label:'evening'},
+  night:  {filter:'saturate(0.75) brightness(0.82) hue-rotate(-8deg)',overlay:'rgba(180,80,20,0.07)',label:'night'},
+};
+
+function getTimeOfDayMode(hour){
+  if(hour>=6&&hour<12)return 'morning';
+  if(hour>=12&&hour<18)return 'day';
+  if(hour>=18&&hour<21)return 'evening';
+  return 'night';
+}
+
+function applyTimeOfDay(){
+  const hour=new Date().getHours();
+  const mode=getTimeOfDayMode(hour);
+  const cfg=TOD_MODES[mode];
+  const app=document.getElementById('app');
+  if(!app)return;
+  app.style.filter=cfg.filter;
+  // warm overlay via ::after — set via a CSS var on the element
+  // use a real child div for cross-browser compat
+  let ov=document.getElementById('todOverlay');
+  if(!ov){
+    ov=document.createElement('div');
+    ov.id='todOverlay';
+    ov.style.cssText='position:fixed;inset:0;z-index:9998;pointer-events:none;transition:background 2s ease';
+    document.body.appendChild(ov);
+  }
+  ov.style.background=cfg.overlay;
+  // slow animations at night by scaling transition durations
+  const root=document.documentElement;
+  root.style.setProperty('--anim-speed',mode==='night'?'1.8':'1');
+}
+
+let _todInterval=null;
+function initTimeOfDay(){
+  applyTimeOfDay();
+  // Re-apply at top of each hour
+  const now=new Date();
+  const msToNextHour=(60-now.getMinutes())*60000-(now.getSeconds()*1000)+50;
+  setTimeout(()=>{
+    applyTimeOfDay();
+    _todInterval=setInterval(applyTimeOfDay,3600000);
+  },msToNextHour);
+}
+
+// ── WEATHER (Open-Meteo, no API key) ─────────────────────────────────────────
+const _WMO_ICO={0:'☀️',1:'🌤',2:'⛅',3:'☁️',45:'🌫',48:'🌫',51:'🌦',53:'🌦',55:'🌧',56:'🌧',57:'🌧',61:'🌧',63:'🌧',65:'🌧',66:'🌨',67:'🌨',71:'❄️',73:'❄️',75:'❄️',77:'🌨',80:'🌦',81:'🌧',82:'🌧',85:'❄️',86:'❄️',95:'⛈️',96:'⛈️',99:'⛈️'};
+const _WMO_DESC_RU={0:'Ясно',1:'Малооблачно',2:'Переменная облачность',3:'Пасмурно',45:'Туман',51:'Морось',61:'Дождь',65:'Сильный дождь',71:'Снег',80:'Ливень',95:'Гроза',99:'Сильная гроза'};
+const _WMO_DESC_EN={0:'Clear',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',45:'Fog',51:'Drizzle',61:'Rain',65:'Heavy rain',71:'Snow',80:'Showers',95:'Thunderstorm',99:'Heavy storm'};
+
+function _wmoDesc(code,isRu){
+  const map=isRu?_WMO_DESC_RU:_WMO_DESC_EN;
+  const keys=Object.keys(map).map(Number).sort((a,b)=>b-a);
+  const k=keys.find(k=>code>=k);
+  return map[k]||(isRu?'Переменно':'Variable');
+}
+
+async function fetchWeather(lat,lng){
+  try{
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current_weather=true`;
+    const res=await fetch(url);const json=await res.json();
+    const cw=json.current_weather;if(!cw)return;
+    const code=cw.weathercode;
+    const cache={temp:cw.temperature,code,ico:_WMO_ICO[code]||'🌡',desc:_wmoDesc(code,lang==='ru'),ts:Date.now()};
+    sv('weather_cache',cache);
+    if(S.tab==='home')render();
+  }catch(e){}
+}
+
+function initWeather(){
+  if(!navigator.geolocation)return;
+  const cache=ld('weather_cache',null);
+  const AGE=30*60*1000; // 30 min
+  if(cache&&Date.now()-cache.ts<AGE)return; // fresh cache — skip
+  navigator.geolocation.getCurrentPosition(
+    pos=>fetchWeather(pos.coords.latitude,pos.coords.longitude),
+    ()=>{},
+    {enableHighAccuracy:false,timeout:8000,maximumAge:300000}
+  );
+}
+
+function replaceRunWithWorkout(){
+  const outdoor=['run','walk','cycling','outdoor'];
+  let swapped=0;
+  S.dayPlan.forEach((p,i)=>{
+    if(outdoor.includes(p.id)&&!p.done){
+      // replace with workout in-place (change id, keep position)
+      S.dayPlan[i]={...p,id:'workout',customName:lang==='ru'?'🏠 Домашняя тренировка':'🏠 Home workout'};
+      swapped++;
+    }
+  });
+  if(swapped){
+    sv('day_plan_'+tk(),S.dayPlan);
+    toast(lang==='ru'?`🔄 Заменено ${swapped} пробежек на домашнюю тренировку`:`🔄 Replaced ${swapped} outdoor habit(s) with home workout`);
+    render();
+  } else {
+    toast(lang==='ru'?'Пробежек в плане не найдено':'No outdoor habits found in plan');
+  }
+}
+
+// ── GEOLOCATION / GYM AUTO-MARK ───────────────────────────────────────────────
+function _geoDistMeters(lat1,lng1,lat2,lng2){
+  const R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLng=(lng2-lng1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function initGeoLocation(){
+  if(!navigator.geolocation||!S.user.gymLat||!S.user.gymLng)return;
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const d=_geoDistMeters(pos.coords.latitude,pos.coords.longitude,S.user.gymLat,S.user.gymLng);
+    const radius=S.user.gymRadius||200;
+    const wasNear=ld('gym_nearby',false);
+    const isNear=d<=radius;
+    sv('gym_nearby',isNear);
+    if(isNear&&!wasNear&&S.tab==='home')render(); // show banner
+    if(!isNear&&wasNear)render();                  // hide banner
+  },()=>{},{ enableHighAccuracy:true, timeout:8000, maximumAge:120000 });
+}
+
+function captureGymLocation(){
+  if(!navigator.geolocation){toast(lang==='ru'?'Геолокация не поддерживается':'Geolocation not supported');return;}
+  toast(lang==='ru'?'📍 Определяю позицию…':'📍 Getting position…');
+  navigator.geolocation.getCurrentPosition(pos=>{
+    document.getElementById('gymLatInp').value=pos.coords.latitude.toFixed(6);
+    document.getElementById('gymLngInp').value=pos.coords.longitude.toFixed(6);
+    toast(lang==='ru'?'✓ Координаты записаны — нажми Сохранить':'✓ Coordinates captured — tap Save');
+  },()=>toast(lang==='ru'?'⚠️ Не удалось получить геолокацию':'⚠️ Could not get location'),{enableHighAccuracy:true,timeout:8000});
+}
+
+function saveGymLocation(){
+  const lat=parseFloat(document.getElementById('gymLatInp')?.value);
+  const lng=parseFloat(document.getElementById('gymLngInp')?.value);
+  const rad=parseInt(document.getElementById('gymRadInp')?.value)||200;
+  const name=(document.getElementById('gymNameInp')?.value||'').trim();
+  if(isNaN(lat)||isNaN(lng)){toast(lang==='ru'?'⚠️ Введи координаты':'⚠️ Enter coordinates');return;}
+  S.user.gymLat=lat;S.user.gymLng=lng;S.user.gymRadius=rad;S.user.gymName=name||S.user.gymName;
+  sv('user',S.user);
+  toast(lang==='ru'?'✓ Локация зала сохранена':'✓ Gym location saved');
+  initGeoLocation(); // re-check distance immediately
+  render();
+}
+
+function autoMarkGymHabit(){
+  const gymIds=['gym','workout','run','swimming','yoga','sport','stretch'];
+  let marked=0;
+  S.dayPlan.forEach((p,i)=>{
+    if(!p.done&&gymIds.includes(p.id)){S.dayPlan[i].done=true;marked++;}
+  });
+  if(marked>0){
+    sv('day_plan_'+tk(),S.dayPlan);
+    addXP(10*marked);
+    toast(lang==='ru'?`💪 Отмечено ${marked} тренировок!`:`💪 Marked ${marked} workout(s)!`);
+  } else {
+    toast(lang==='ru'?'Тренировок в плане не найдено':'No workout habits in today\'s plan');
+  }
+  sv('gym_nearby',false); // hide banner after action
+  render();
+}
+
+// ── SLEEP CYCLE CALCULATOR ────────────────────────────────────────────────────
+function updateSleepCalc(wakeStr){
+  const _isRu=lang==='ru';
+  const _opts=[
+    {n:6,q:_isRu?'Идеально':'Optimal',col:'var(--teal)'},
+    {n:5,q:_isRu?'Хорошо':'Good',col:'#30d158'},
+    {n:4,q:_isRu?'Нормально':'Fair',col:'var(--amber)'},
+    {n:3,q:_isRu?'Мало':'Short',col:'var(--coral)'},
+  ];
+  const _calcBed=(ws,n)=>{
+    const [hh,mm]=(ws||'06:30').split(':').map(Number);
+    let bm=(hh*60+mm)-(n*90+14);if(bm<0)bm+=1440;
+    return String(Math.floor(bm/60)%24).padStart(2,'0')+':'+String(bm%60).padStart(2,'0');
+  };
+  const c=document.getElementById('sleepCycleCards');
+  if(!c)return;
+  c.innerHTML=_opts.map(o=>{
+    const bed=_calcBed(wakeStr,o.n);
+    return `<div style="flex:1;min-width:0;background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--r);padding:10px 6px;text-align:center;cursor:pointer" onclick="setSleepBedtime('${bed}')">
+      <div style="font-size:17px;font-weight:800;font-family:var(--font-h);color:${o.col}">${bed}</div>
+      <div style="font-size:9px;color:var(--text3);margin-top:3px">${o.n} ${_isRu?'цикл.':'cyc.'}</div>
+      <div style="font-size:9px;font-weight:700;color:${o.col};margin-top:3px;text-transform:uppercase;letter-spacing:.04em">${o.q}</div>
+    </div>`;
+  }).join('');
+}
+function setSleepBedtime(bed){
+  toast(lang==='ru'?`🌙 Ложись в ${bed} — спокойной ночи!`:`🌙 Go to bed at ${bed} — sleep well!`);
+}
+
+// ── PEDOMETER (DeviceMotion) ───────────────────────────────────────────────────
+var _stepActive=false;
+var _stepLastTime=0;
+var _stepMotionHandler=null;
+
+function _onMotionStep(e){
+  const acc=e.acceleration||e.accelerationIncludingGravity;
+  if(!acc)return;
+  const mag=Math.sqrt((acc.x||0)**2+(acc.y||0)**2+(acc.z||0)**2);
+  const now=Date.now();
+  // threshold ~12 m/s²; min 280ms between steps to avoid double-count
+  if(mag>12&&now-_stepLastTime>280){
+    _stepLastTime=now;
+    const today=tk();
+    const s=ld('steps_'+today,0)+1;
+    sv('steps_'+today,s);
+    // Live DOM update — avoid full re-render on every step
+    const elS=document.getElementById('stepCount');
+    const elK=document.getElementById('stepKcal');
+    const elM=document.getElementById('stepKm');
+    if(elS)elS.textContent=s.toLocaleString();
+    if(elK)elK.textContent=Math.round(s*0.04);
+    if(elM)elM.textContent=(s*0.0008).toFixed(2);
+  }
+}
+
+async function togglePedometer(){
+  if(_stepActive){stopPedometer();return;}
+  // iOS 13+ requires explicit permission
+  if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
+    try{
+      const perm=await DeviceMotionEvent.requestPermission();
+      if(perm!=='granted'){
+        toast(lang==='ru'?'⚠️ Нет разрешения на Motion':'⚠️ Motion permission denied');return;
+      }
+    }catch(err){
+      toast(lang==='ru'?'Ошибка запроса разрешения':'Permission request failed');return;
+    }
+  }
+  if(!('DeviceMotionEvent' in window)){
+    toast(lang==='ru'?'DeviceMotion не поддерживается':'DeviceMotion not supported');return;
+  }
+  startPedometer();
+}
+
+function startPedometer(){
+  _stepActive=true;
+  _stepMotionHandler=_onMotionStep;
+  window.addEventListener('devicemotion',_stepMotionHandler);
+  toast(lang==='ru'?'👟 Шагомер запущен':'👟 Pedometer started');
+  render();
+}
+
+function stopPedometer(){
+  _stepActive=false;
+  if(_stepMotionHandler){window.removeEventListener('devicemotion',_stepMotionHandler);_stepMotionHandler=null;}
+  toast(lang==='ru'?'⏹ Шагомер остановлен':'⏹ Pedometer stopped');
+  render();
 }
 </script>
+
+<!-- MODAL -->
+<div id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-hdr">
+      <div class="modal-title" id="modalTitle"></div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<!-- DEEP WORK OVERLAY -->
+<div id="deepWorkOverlay">
+  <button onclick="stopDeepWork(false)" style="position:absolute;top:20px;right:20px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:50%;width:40px;height:40px;color:rgba(255,255,255,0.6);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font-b)">×</button>
+  <div id="dwLabel" style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.35);margin-bottom:28px;letter-spacing:.08em;text-transform:uppercase">🎯 Deep Work</div>
+  <div style="position:relative;margin-bottom:32px">
+    <svg id="dwRing" width="220" height="220" viewBox="0 0 220 220">
+      <circle cx="110" cy="110" r="96" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="10"/>
+      <circle id="dwArc" cx="110" cy="110" r="96" fill="none" stroke="#6c63ff" stroke-width="10"
+        stroke-linecap="round" stroke-dasharray="603.2" stroke-dashoffset="0"
+        transform="rotate(-90 110 110)" style="transition:stroke-dashoffset .9s ease,stroke .5s ease"/>
+    </svg>
+    <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+      <div id="dwTime" style="font-size:54px;font-weight:800;font-family:'Syne',sans-serif;color:rgba(255,255,255,0.95);line-height:1;letter-spacing:-.02em">25:00</div>
+      <div id="dwStatus" style="font-size:12px;color:rgba(255,255,255,0.35);margin-top:6px;font-weight:500"></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;margin-bottom:12px">
+    <button id="dwPauseBtn" onclick="pauseDeepWork()" style="padding:12px 24px;background:rgba(108,99,255,0.2);border:1px solid rgba(108,99,255,0.4);border-radius:14px;color:#8b85ff;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font-b);min-width:110px">⏸ Пауза</button>
+    <button onclick="addDeepWorkTime(5)" style="padding:12px 20px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:14px;color:rgba(255,255,255,0.6);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font-b)">+5 мин</button>
+  </div>
+  <button onclick="stopDeepWork(false)" style="padding:10px 28px;background:rgba(255,107,107,0.12);border:1px solid rgba(255,107,107,0.3);border-radius:14px;color:#ff6b6b;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-b)">⏹ Завершить</button>
+</div>
 </body>
 </html>
