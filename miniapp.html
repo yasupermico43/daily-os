@@ -2312,6 +2312,7 @@ function rHomeEvening(){
       <button class="plan-action-btn" style="padding:10px 14px" onclick="generateAIPlanTomorrow()">✦ AI план</button>
     </div>
     ${aiPlan?`<div style="margin-top:12px;font-size:12px;line-height:1.7;color:var(--text2);white-space:pre-wrap;background:var(--bg2);border-radius:8px;padding:10px">${escH(aiPlan)}</div>`:''}
+  ${S.dayPlan.length>0?`<div class="stitle" style="margin-top:8px">${lang==='ru'?'План дня':'Today\'s plan'}</div><div class="card" style="padding:4px 0">${S.dayPlan.map(p=>{const h=HABIT_LIB.find(x=>x.id===p.id);if(!h)return '';return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;opacity:'+(p.done?'0.45':'1')+'"><span style="font-size:18px">'+h.ico+'</span><span style="flex:1;font-size:13px;color:var(--text2)'+(p.done?';text-decoration:line-through':'')+'">'+( h.name[lang]||h.name.ru)+'</span>'+(p.done?'<span style="color:var(--teal)">✓</span>':'')+'</div>';}).join('')}</div>`:''}
   </div>`;
 }
 
@@ -2579,7 +2580,7 @@ function rJournal(){
     <textarea class="j-ta" id="noteText" placeholder="${lang==='ru'?'Запиши мысль, идею или цитату...':'Write a thought, idea or quote...'}"></textarea>
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn-main" onclick="saveNote()" style="flex:1;background:var(--teal);border-color:var(--teal)">${t().save}</button>
-      <button id="voiceBtn" class="btn-main" onclick="startVoiceNote()" title="${lang==='ru'?'Голосовая заметка':'Voice note'}" style="flex:0 0 auto;min-width:48px;background:var(--glass2);border:1px solid var(--border2);font-size:18px;padding:0 14px">🎤</button>
+      <button id="voiceBtn" onclick="startVoiceNote()" title="${lang==='ru'?'Голосовая заметка':'Voice note'}" style="flex:0 0 auto;width:44px;height:44px;min-width:44px;background:var(--glass2);border:1px solid var(--border2);border-radius:10px;font-size:16px;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center">🎤</button>
     </div>
   </div>
   <div class="stitle">${lang==='ru'?'Мои записи':'My notes'} (${notes.length})</div>
@@ -3486,7 +3487,7 @@ let _voiceRec=null;
 function startVoiceNote(){
   const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SpeechRecognition){
-    toast(lang==='ru'?'🎤 Голосовой ввод не поддерживается в этом браузере':'🎤 Voice input not supported in this browser');
+    toast(lang==='ru'?'🎤 Недоступно в Telegram. Открой в Safari':'🎤 Not available in Telegram. Open in Safari');
     return;
   }
   const btn=document.getElementById('voiceBtn');
@@ -3498,6 +3499,9 @@ function startVoiceNote(){
     return;
   }
   const rec=new SpeechRecognition();
+  rec.lang=lang==='ru'?'ru-RU':'en-US';
+  rec.interimResults=false;
+  rec.maxAlternatives=1;
   rec.lang=lang==='ru'?'ru-RU':'en-US';
   rec.interimResults=false;
   rec.maxAlternatives=1;
@@ -4053,7 +4057,7 @@ function _onMotionStep(e){
   const mag=Math.sqrt((acc.x||0)**2+(acc.y||0)**2+(acc.z||0)**2);
   const now=Date.now();
   // threshold ~12 m/s²; min 280ms between steps to avoid double-count
-  if(mag>12&&now-_stepLastTime>280){
+  if(mag>8&&now-_stepLastTime>300){  // threshold lowered for iPhone sensitivity
     _stepLastTime=now;
     const today=tk();
     const s=ld('steps_'+today,0)+1;
